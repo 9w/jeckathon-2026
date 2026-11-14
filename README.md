@@ -22,6 +22,21 @@ pnpm dev          # http://localhost:3000
 
 같은 Wi-Fi의 휴대폰에서 보려면 `pnpm dev -H 0.0.0.0` 후 `http://<내 PC IP>:3000` 접속.
 
+### Supabase 연결
+
+Supabase SDK를 사용하려면 로컬과 Vercel의 Node.js 버전을 22 이상으로 맞춥니다.
+
+1. Supabase 프로젝트의 Authentication 설정에서 Anonymous Sign-Ins를 활성화합니다.
+2. 프로젝트에 `supabase/migrations/20261114134000_fan_entry.sql`을 한 번 적용합니다.
+3. `.env.local`과 Vercel 프로젝트 환경 변수에 Supabase URL 및 Publishable Key를 설정합니다.
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+```
+
+팀을 선택하면 게스트 세션이 생성됩니다. 같은 브라우저에서 응원팀과 닉네임, 포인트 잔액 및 데모 투표를 이어서 볼 수 있습니다. 닉네임 검증 테스트는 `node --test tests/nickname.test.mjs`로 실행합니다.
+
 ## 모바일 웹 셋팅
 
 - `src/app/layout.tsx` — viewport(`device-width`, `viewport-fit=cover`), theme-color, iOS 홈 화면 앱 메타, `max-w-md` 모바일 컨테이너
