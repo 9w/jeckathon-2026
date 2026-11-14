@@ -1,0 +1,245 @@
+# Sportradar Global Baseball API (Trial) — KBO 응답 정리
+
+> 테스트일: 2026-11-14 · 대상: KBO 2026 시즌 · 키 종류: 30일 Trial (2026-12-14 만료)
+> 출루 예측 포인트 앱 해커톤용 검토 자료
+
+---
+
+## 0. 한 줄 요약
+
+- **데이터는 받아진다.** KBO 2024~2026 시즌, 경기별 점수·라인업·투구 단위 타임라인까지 전부 200 OK.
+- **응답은 "현재 상태 스냅샷"이 아니라 "이벤트 로그"다.** `currentHitter`, `runners`, `nextHitters`, `defense` 같은 필드는 없고, 서버에서 이벤트를 누적해 직접 만들어야 한다.
+- **KBO 시즌이 11/8 종료** → 해커톤 시연은 지난 경기 리플레이로 진행.
+
+---
+
+## 1. 호출 방식
+
+```
+Base URL : https://api.sportradar.com/baseball/trial/v2/en
+인증     : 헤더 x-api-key: <API_KEY>   (키는 .env에만 보관)
+```
+
+| 용도 | 엔드포인트 |
+|---|---|
+| 리그 목록 | `GET /competitions.json` |
+| KBO 시즌 목록 | `GET /competitions/sr:competition:2541/seasons.json` |
+| 시즌 경기 목록 | `GET /seasons/{seasonId}/summaries.json?start=0` (200개씩, `start`로 페이지) |
+| 경기 요약 | `GET /sport_events/{eventId}/summary.json` |
+| 라인업 | `GET /sport_events/{eventId}/lineups.json` |
+| 타임라인(문자중계) | `GET /sport_events/{eventId}/timeline.json` |
+
+주요 ID
+
+| 항목 | ID |
+|---|---|
+| KBO League | `sr:competition:2541` |
+| KBO 2026 시즌 | `sr:season:138278` (2026-03-28 ~ 2026-11-08, 총 810경기) |
+| KBO 2025 시즌 | `sr:season:128213` |
+| 테스트 경기 | `sr:sport_event:67204054` (4/28 SSG 6 : 7 한화, 10회 끝내기) |
+
+---
+
+## 2. 응답 속도 (측정값)
+
+엔드포인트별 5회 호출, 해외 클라우드 기준
+
+| 엔드포인트 | 응답 시간 | 응답 크기 |
+|---|---|---|
+| summary | 0.54 ~ 1.04초 | 15KB |
+| lineups | 0.62 ~ 0.84초 | 14KB |
+| timeline | 0.95 ~ 1.86초 | 262KB (경기 후반 기준) |
+
+- 동시 5건 호출 → 전부 200, 429(호출 제한) 없음
+- **측정 못 한 것:** 실제 플레이 → API 반영까지의 지연. 현재 KBO 라이브 경기가 없어 확인 불가
+
+---
+
+## 3. JSON 구조
+
+### 3-1. summary.json — 경기 결과
+
+```json
+{
+  "sport_event": {
+    "id": "sr:sport_event:67204054",
+    "start_time": "2026-04-28T09:30:00+00:00",
+    "competitors": [
+      { "id": "sr:competitor:...", "name": "Hanwha Eagles", "abbreviation": "HAN", "qualifier": "home" },
+      { "id": "sr:competitor:...", "name": "SSG Landers",  "abbreviation": "SSG", "qualifier": "away" }
+    ]
+  },
+  "sport_event_status": {
+    "status": "closed",
+    "match_status": "aet",
+    "home_score": 7,
+    "away_score": 6,
+    "winner_id": "sr:competitor:249963",
+    "period_scores": [
+      { "number": 1, "home_score": 0, "away_score": 1, "type": "regular_period" }
+    ]
+  },
+  "statistics": {
+    "totals": {
+      "competitors": [
+        {
+          "name": "Hanwha Eagles",
+          "statistics": { "at_bats": 41, "hits": 10, "runs": 7, "walks": 8, "strikeouts": 8, "home_runs": 0, "errors": 0 },
+          "players": [
+            { "id": "sr:player:1993905", "name": "Jin-Young, Lee", "type": "batter",
+              "statistics": { "at_bats": 1, "hits": 0, "walks": 1, "runs": 1 } }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
+
+- `status`: `not_started` / `live` / `closed`
+- `match_status`: `ended` (정규), `aet` (연장 종료)
+- `period_scores`: 이닝별 점수
+
+### 3-2. lineups.json — 출전 선수
+
+```json
+{
+  "lineups": {
+    "competitors": [
+      {
+        "name": "Hanwha Eagles",
+        "qualifier": "home",
+        "players": [
+          { "id": "sr:player:...", "name": "In-seo, Heo", "type": "C",
+            "jersey_number": 59, "starter": true,
+            "height": 178, "weight": 97, "date_of_birth": "..." }
+        ]
+      }
+    ]
+  }
+}
+```
+
+- 팀당 29명, `starter: true` 10명(선발 9 + 선발투수)
+- `type`은 **IF / OF / C / P 4종류뿐** → 유격수·2루수 등 세부 포지션 없음
+- **타순(batting order) 필드 없음**, 배열 순서도 타순 아님
+- 이름은 영문 로마자 (`"Chi-hong, An"`) → 한글 표기 매핑 테이블 필요
+
+### 3-3. timeline.json — 문자중계 (핵심)
+
+`timeline` 배열에 이벤트가 시간순으로 들어옴. 테스트 경기 기준 1,345개.
+
+| type | 개수 | 의미 |
+|---|---|---|
+| `play_start` | 398 | 플레이 시작 (타자·투수 포함) — **타석당 1개가 아니라 투구/플레이마다** |
+| `play_end` | 398 | 플레이 종료 |
+| `pitch_result` | 318 | 투구 결과 (볼/스트라이크 카운트) |
+| `ball_in_play` | 72 | 타구 발생 |
+| `out_recorded` | 59 | 아웃 (타자 아웃 시 batter 포함) |
+| `at_bat_result` | 36 | **출루 시에만 발생** (안타·볼넷 등) |
+| `run_scored` | 13 | 득점 |
+| `runner_check` | 10 | 주자 위치 확인 |
+| `inning_half_start` / `_end` | 20 / 19 | 초·말 시작/종료 |
+| `match_started` / `_ended` | 1 / 1 | 경기 시작/종료 |
+
+이벤트 예시
+
+```json
+// 타석 시작 (타자/투수)
+{ "type": "play_start", "time": "2026-04-28T09:31:25+00:00",
+  "players": [
+    { "id": "sr:player:3166776", "name": "Yan-cheng, Wang", "type": "pitcher" },
+    { "id": "sr:player:3173842", "name": "Do-woo, Yi", "type": "batter" }
+  ],
+  "inning_half": "top" }
+
+// 투구 결과
+{ "type": "pitch_result", "time": "...", "result": "ball",
+  "count_balls": 2, "count_strikes": 2, "outs": 0 }
+
+// 출루 (= 예측 적중 판정용)
+{ "type": "at_bat_result", "time": "2026-04-28T09:36:17+00:00",
+  "players": [{ "id": "sr:player:964101", "name": "Heredia, Guillermo", "type": "batter" }],
+  "outcome": "single", "is_out": false,
+  "starting_base": 0, "ending_base": 1, "outs": 2, "errors": 0 }
+
+// 아웃
+{ "type": "out_recorded", "time": "2026-04-28T09:33:34+00:00",
+  "players": [{ "id": "sr:player:3173838", "name": "Jun-young, Kim", "type": "batter" }],
+  "out_type": "fly_out", "outs": 1 }
+
+// 주자 위치
+{ "type": "runner_check", "players": [{ "name": "In-seo, Heo", "type": "runner" }], "base": 1 }
+
+// 득점
+{ "type": "run_scored", "players": [{ "name": "Do-woo, Yi", "type": "runner" }],
+  "scored_run_type": "home_run", "outs": 0 }
+```
+
+`at_bat_result.outcome` 값 (테스트 경기): `single` 20, `walk` 11, `double` 2, `triple` 1, `other` 2
+
+---
+
+## 4. 출루 판정 로직
+
+```
+새 타석   : play_start 의 batter ID 가 직전과 달라짐
+출루     : at_bat_result (같은 batter)  → outcome 으로 종류 구분
+아웃     : out_recorded (같은 batter)
+```
+
+- 테스트 경기 92타석 = 출루 36 + 타자 아웃 56 → 누락 없음
+- `other`는 몸에 맞는 공/실책 출루 추정 → **실책 출루를 출루로 칠지 규칙 결정 필요**
+
+---
+
+## 5. 우리 앱 필드와 매핑
+
+| 앱 필드 | Sportradar에서 만드는 법 | 가능 여부 |
+|---|---|---|
+| `currentHitter` | 마지막 `play_start`의 batter | 가능 |
+| `nextHitters` | 타순 필드 없음 → 1회부터 등장한 타자 순서를 기록해 생성. 대타·교체 시 보정 필요 | 직접 구현 |
+| `runners` | 스냅샷 없음 → `at_bat_result.ending_base`, `runner_check.base`, `run_scored`, `out_recorded`로 1·2·3루 상태 직접 갱신. 도루·견제 누락 시 어긋날 위험 | 직접 구현 |
+| `defense` | 포지션이 IF/OF/C/P뿐 | 세부 수비 위치 불가 |
+| 카운트(B-S-O) | `pitch_result`의 `count_balls`, `count_strikes`, `outs` | 가능 |
+| 점수/이닝 | `sport_event_status`, `inning_half_*` | 가능 |
+
+→ 서버에 **어댑터 계층**을 두고 이벤트 로그 → 앱 JSON 구조로 변환하는 방식 권장
+
+---
+
+## 6. 예측 잠금 타이밍 (실데이터 분석)
+
+타자 등장(`play_start`) → 결과까지 걸린 시간, 90타석 기준
+
+| 지표 | 값 |
+|---|---|
+| 최소 | 2초 |
+| 하위 10% | 11초 |
+| 중앙값 | 76초 |
+| 상위 10% | 175초 |
+| 10초 이내 결과 | 9타석 (10%) |
+| 30초 이내 결과 | 16타석 (18%) |
+
+- API 지연이 10초만 돼도 약 10%의 타석은 **잠금 전에 TV로 결과가 보임**
+- 대응: 잠금 시각(서버 시계) 기록 → 결과 이벤트의 `time`이 잠금 시각보다 이르면 **해당 타석 무효 + 포인트 환불**
+
+---
+
+## 7. 주의사항
+
+1. **라이브 시연 불가** — KBO 시즌 종료. 지난 경기 timeline을 `time` 간격대로 재생(배속 조절)하는 리플레이로 시연
+2. **Trial 키 용도** — 평가용. 상용 서비스 전환 시 유료 계약 필요 (추정)
+3. **포인트 현금화 금지** — 상품·현금 교환 시 사행성 규제 영역
+4. **timeline 크기** — 폴링마다 전체(200KB+)를 받음 → 처리한 이벤트 ID 기억하고 신규만 처리
+5. **키 관리** — 레포·채팅에 노출 금지, `.env`로만 관리
+
+## 8. 시연 추천 경기 (2026 시즌, 역전·끝내기)
+
+| 날짜 | 경기 | 특징 |
+|---|---|---|
+| 04-28 | SSG 6 : 7 한화 | 리드 3회 바뀜, 10회 끝내기 |
+| 04-28 | LG 5 : 6 KT | 리드 3회 바뀜, 10회 끝내기 |
+| 08-26 | 두산 4 : 5 KT | 리드 3회 바뀜, 9회 끝내기 |
+| 06-20 | KIA 9 : 10 KT | 리드 3회 바뀜, 9회 끝내기 |
+| 03-28 | 키움 9 : 10 한화 | 개막전, 11회 끝내기 |
