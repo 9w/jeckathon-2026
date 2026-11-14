@@ -37,6 +37,12 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 
 팀을 선택하면 게스트 세션이 생성됩니다. 같은 브라우저에서 응원팀과 닉네임, 포인트 잔액 및 데모 투표를 이어서 볼 수 있습니다. 닉네임 검증 테스트는 `node --test tests/nickname.test.mjs`로 실행합니다.
 
+### 타석 리플레이 데이터
+
+2026년 9월 3일 LG·두산전은 투표 화면 하단 **경기 기록 파일 열기**에서 내부 검증용 `lg-doosan-20260903.json`을 선택해 재생합니다. 타임라인을 이동하며 이닝, 타자, 결과와 첫 투구 시각, 투구 수를 [KBO 게임센터](https://www.koreabaseball.com/Schedule/GameCenter/Main.aspx?gameDate=20260903&gameId=20260903LGOB0&section=REVIEW)와 대조할 수 있습니다.
+
+파일 선택 시 브라우저 메모리에서 읽으며 페이지를 새로 열면 다시 선택해야 합니다. 로컬 개발 서버는 `.local-replay/lg-doosan-20260903.json`이 있으면 자동으로 읽습니다. 구간은 완료된 66타석과 1회초 주루사로 중단된 문보경 타석을 포함합니다. 첫 투구 시각은 보정한 Sportradar 기록 기준입니다. [무료 체험 조건](https://developer.sportradar.com/sportradar-updates/page/terms-and-conditions)에 따라 데이터 파일은 Git과 Vercel 배포에서 제외합니다.
+
 ## 모바일 웹 셋팅
 
 - `src/app/layout.tsx` — viewport(`device-width`, `viewport-fit=cover`), theme-color, iOS 홈 화면 앱 메타, `max-w-md` 모바일 컨테이너

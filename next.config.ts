@@ -16,6 +16,9 @@ const nextConfig: NextConfig = {
   }),
   cacheComponents: true,
   partialPrefetching: true,
+  outputFileTracingExcludes: {
+    "/*": [".local-replay/**/*"],
+  },
   turbopack: {
     rules: {
       "*.css": {

@@ -13,6 +13,7 @@ import {
   type Team,
 } from "@/lib/fan-session";
 import { normalizeNickname } from "@/lib/nickname";
+import { PlateReplay } from "./plate-replay";
 
 const teams = {
   lg: { label: "LG 트윈스", mark: "LG", color: "bg-[#a61549]" },
@@ -250,6 +251,7 @@ export function FanGame() {
               </p>
               {error?.field === "vote" && <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">{error.message}</p>}
             </section>
+            <PlateReplay />
           </>
         ) : (
           <section aria-labelledby="team-heading" className="space-y-5">
