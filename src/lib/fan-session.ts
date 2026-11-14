@@ -94,3 +94,27 @@ export async function castVote(id: string, choice: Choice) {
   }
   throw error;
 }
+
+export type Round = {
+  id: string;
+  batter: string;
+  opens_at: string;
+  locks_at: string;
+  result_at: string;
+  status: "open" | "settled" | "void";
+  answer: Choice | null;
+};
+
+// 결과 시각이 지난 타석을 정산하고 최근 타석을 받는다. 여러 명이 동시에 불러도 정산은 한 번만 된다.
+export async function pollRounds(gameId: string) {
+  const { data, error } = await supabase().rpc("poll_rounds", { p_game_id: gameId });
+  if (error) throw error;
+  return data as Round[];
+}
+
+// 마감 후면 error.hint === "VOTING_CLOSED". 이미 투표했으면 처음 선택을 돌려준다.
+export async function castPrediction(roundId: string, choice: Choice) {
+  const { data, error } = await supabase().rpc("cast_prediction", { p_round_id: roundId, p_choice: choice });
+  if (error) throw error;
+  return data as Choice;
+}
