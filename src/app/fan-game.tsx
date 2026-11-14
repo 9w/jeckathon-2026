@@ -355,7 +355,7 @@ export function FanGame() {
               </div>
             </section>
             {sharedRoom && <ReplayControl key={sharedRoom.roomId} room={sharedRoom} refresh={() => setRoomRefresh((count) => count + 1)} />}
-            <PlateReplay />
+            {process.env.NODE_ENV === "development" && room === "invite-required" && <PlateReplay />}
           </>
         ) : (
           <section aria-labelledby="team-heading" className="fan-team-select">
