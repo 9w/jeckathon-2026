@@ -55,10 +55,10 @@ export function useFanTaunts(playerId: string | undefined, onPoints: (points: nu
     };
   }, [playerId]);
 
-  const read = useCallback(async (id: string) => {
+  const read = useCallback(async (id: string, open = true) => {
     const message = await readFanTaunt(id);
     if (message) {
-      setOpened(message);
+      if (open) setOpened(message);
       setInbox((current) => current.map((item) => item.id === id ? message : item));
     }
   }, []);
@@ -77,8 +77,8 @@ export function useFanTaunts(playerId: string | undefined, onPoints: (points: nu
     }
   }
 
-  function dismiss() {
-    if (incoming) setDismissed((current) => [...current, incoming.id]);
+  function dismiss(id = incoming?.id) {
+    if (id) setDismissed((current) => current.includes(id) ? current : [...current, id]);
     setOpened(null);
   }
 

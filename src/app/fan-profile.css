@@ -1,0 +1,263 @@
+.fan-profile-screen {
+  min-height: var(--fan-stage-height);
+  padding: 48px 24px 20px;
+}
+
+.fan-profile-form,
+.fan-profile-content {
+  display: grid;
+}
+
+.fan-profile-header {
+  display: grid;
+  min-height: 44px;
+  grid-template-columns: minmax(50px, 1fr) auto minmax(50px, 1fr);
+  align-items: center;
+  margin-inline-start: -12px;
+}
+
+.fan-profile-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.fan-profile-save {
+  min-height: 44px;
+  justify-self: end;
+  color: var(--fan-accent-text);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.fan-profile-photo {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  justify-self: center;
+  margin-block: 12px 16px;
+  color: var(--fan-sub);
+  font-size: 13px;
+}
+
+.fan-profile-portrait {
+  position: relative;
+  display: grid;
+  width: 104px;
+  height: 104px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fan-accent);
+  color: #fff;
+  font-size: 40px;
+  font-weight: 900;
+}
+
+.fan-profile-pencil {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fan-text);
+  color: var(--fan-bg);
+}
+
+.fan-profile-stats {
+  display: grid;
+  min-height: 58px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  border-radius: 16px;
+  padding-block: 5px;
+  background: var(--fan-surface);
+  text-align: center;
+}
+
+.fan-profile-stats div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 2px;
+  padding-inline: 4px;
+}
+
+.fan-profile-stats div + div {
+  border-inline-start: 1px solid var(--fan-line);
+}
+
+.fan-profile-stats dt {
+  color: var(--fan-sub);
+  font-size: 11px;
+}
+
+.fan-profile-stats dd {
+  font-size: 15px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.fan-profile-nickname {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+}
+
+.fan-profile-nickname label,
+.fan-profile-team-title h2 {
+  font-size: 13px;
+}
+
+.fan-profile-nickname p {
+  font-size: 12px;
+}
+
+.fan-profile-input {
+  display: flex;
+  min-height: 52px;
+  align-items: center;
+  gap: 8px;
+  border: 1.5px solid var(--fan-line);
+  border-radius: 14px;
+  padding-inline: 16px;
+  background: var(--fan-surface);
+}
+
+.fan-profile-input:has([aria-invalid="true"]) {
+  border-color: var(--fan-error);
+}
+
+.fan-profile-input:focus-within {
+  outline: 2px solid var(--fan-accent-text);
+  outline-offset: 2px;
+}
+
+.fan-profile-input input {
+  width: 100%;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.fan-experience .fan-profile-input input:focus-visible {
+  outline: none;
+}
+
+.fan-profile-input > span,
+.fan-profile-team-title > span {
+  color: var(--fan-sub);
+  font-size: 12px;
+}
+
+.fan-profile-team {
+  display: grid;
+  gap: 7px;
+  margin-block: 14px 20px;
+}
+
+.fan-profile-team-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.fan-profile-team-row {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--fan-line);
+  border-radius: 14px;
+  padding-inline: 16px;
+  background: var(--fan-surface);
+  color: var(--fan-sub);
+}
+
+.fan-profile-team-row > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-inline-start: auto;
+  font-size: 13px;
+}
+
+.fan-profile-team-note {
+  display: grid;
+  min-height: 40px;
+  place-items: center;
+  border-radius: 12px;
+  padding: 5px 8px;
+  background: color-mix(in srgb, var(--fan-accent) 23%, var(--fan-bg));
+  color: var(--fan-accent-text);
+  font-size: 12px;
+  text-align: center;
+}
+
+.fan-profile-inbox {
+  min-height: 114px;
+  border-radius: 18px;
+  padding: 14px 16px;
+  background: var(--fan-surface);
+}
+
+.fan-profile-inbox h2 {
+  margin-bottom: 7px;
+  color: var(--fan-sub);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fan-profile-inbox li {
+  display: grid;
+  min-height: 54px;
+  grid-template-columns: 36px minmax(0, 1fr) minmax(44px, 64px);
+  align-items: center;
+  gap: 8px;
+}
+
+.fan-profile-sender-avatar {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fan-raised);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.fan-profile-message strong,
+.fan-profile-message p {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fan-profile-message strong {
+  font-size: 14px;
+}
+
+.fan-profile-message p {
+  color: var(--fan-sub);
+  font-size: 12px;
+}
+
+.fan-profile-inbox li button {
+  min-height: 44px;
+  border-radius: 22px;
+  background: var(--fan-text);
+  color: var(--fan-bg);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fan-profile-reset {
+  justify-self: center;
+  margin-top: 7px;
+  text-decoration: underline;
+}

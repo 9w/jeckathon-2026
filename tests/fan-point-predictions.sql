@@ -119,7 +119,7 @@ begin
   perform public.fan_taunt_activity(true);
   perform set_config('request.jwt.claim.sub', player::text, true);
   begin
-    perform public.send_fan_taunt('turtle', 'default', taunt_request);
+    perform public.send_fan_taunt('lg1', 'default', taunt_request);
     raise exception 'Spent points before the award settled.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     null;
@@ -147,12 +147,12 @@ begin
     raise exception 'Wrong result or repeated reward %. %.', state, alternate_state;
   end if;
 
-  receipt := public.send_fan_taunt('turtle', 'default', taunt_request);
+  receipt := public.send_fan_taunt('lg1', 'default', taunt_request);
   if receipt ->> 'points' is distinct from '0'
     or receipt -> 'taunt' ->> 'recipientNickname' is distinct from '상대팬' then
     raise exception 'Earned points did not fund the real taunt %.', receipt;
   end if;
-  if public.send_fan_taunt('turtle', 'default', taunt_request) is distinct from receipt
+  if public.send_fan_taunt('lg1', 'default', taunt_request) is distinct from receipt
     or public.fan_point_prediction() ->> 'points' is distinct from '0' then
     raise exception 'Retry charged twice or read restored spent points.';
   end if;

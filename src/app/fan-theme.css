@@ -389,3 +389,111 @@ body:has(.fan-experience) {
 .fan-record-card form { width: 100%; }
 .fan-record-card label { display: block; margin-bottom: 4px; font-size: 13px; }
 .fan-record-card p.fan-error { color: var(--fan-error); }
+.ipyagu-welcome {
+  background: #f7f7f8;
+  color: #111;
+  color-scheme: light;
+}
+
+.ipyagu-welcome::before {
+  position: absolute;
+  z-index: -2;
+  top: 27.5%;
+  left: -33.3%;
+  width: 190%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #ffecec;
+  content: "";
+}
+
+.ipyagu-welcome .ipyagu-welcome-burst {
+  inset: -20% auto auto 3.6%;
+  width: 185%;
+  height: 87%;
+  color: #ff383c;
+}
+
+.ipyagu-welcome .fan-welcome-copy { top: 30.3%; }
+.ipyagu-welcome .fan-welcome-copy img { margin-inline: auto; }
+.ipyagu-welcome .fan-stage-bottom { padding-bottom: 50px; }
+.ipyagu-welcome .fan-stage-button { background: #111; color: white; }
+.ipyagu-welcome .fan-status { color: #44444c; }
+.ipyagu-welcome .fan-error { color: #a90c25; }
+.ipyagu-welcome :focus-visible { outline-color: #111; }
+
+.ipyagu-lobby::before {
+  inset: -165px auto auto 40px;
+  width: 694px;
+  height: 694px;
+}
+
+.ipyagu-lobby > .ipyagu-match,
+.ipyagu-lobby > .ipyagu-shop-entry,
+.ipyagu-lobby > .fan-quiet-button { margin-block-start: 0; }
+
+.ipyagu-match {
+  min-height: 301px;
+  text-align: start;
+}
+
+.ipyagu-match .fan-lobby-score { min-height: 96px; }
+.ipyagu-match .fan-lobby-score > span:not(.fan-replay-number) {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+}
+.ipyagu-match .fan-lobby-score > span:last-child { justify-items: end; }
+.ipyagu-match .fan-lobby-score img { height: 44px; object-fit: contain; }
+.ipyagu-match .fan-replay-number {
+  font-size: clamp(44px, 15vw, 78px);
+  letter-spacing: -.035em;
+  white-space: nowrap;
+}
+
+.ipyagu-match-batter { border-top: 1px solid var(--fan-line); padding-top: 12px; }
+.ipyagu-match-batter > span, .ipyagu-camp { color: var(--fan-sub); font-size: 12px; }
+.ipyagu-match-batter > div {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+}
+.ipyagu-match-batter img,
+.fan-room-player-avatar:has(img) { border-radius: 50%; background: white; object-fit: contain; }
+.ipyagu-match-batter img { flex: none; padding: 5px; }
+.ipyagu-match-state {
+  margin-inline-start: auto;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--fan-accent);
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ipyagu-camp { margin-top: 12px; }
+.ipyagu-camp > div:first-child { display: flex; justify-content: space-between; gap: 6px; }
+.ipyagu-camp > div:first-child span:first-child { color: var(--fan-lg-text); }
+.ipyagu-camp > div:first-child span:last-child { color: var(--fan-doosan-text); }
+.ipyagu-camp-bar { display: flex; gap: 2px; height: 8px; margin-top: 7px; overflow: hidden; border-radius: 4px; background: var(--fan-raised); }
+.ipyagu-camp-bar span:first-child { background: var(--fan-lg); }
+.ipyagu-camp-bar span:last-child { background: var(--fan-doosan); }
+
+.ipyagu-shop-entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 8px;
+  min-height: 140px;
+  padding: 14px 16px;
+  border: 1px solid var(--fan-line);
+  border-radius: 24px;
+  background: var(--fan-surface);
+  text-align: start;
+}
+.ipyagu-shop-entry > span { color: var(--fan-accent-text); font-size: 13px; font-weight: 700; }
+.ipyagu-shop-entry > small { grid-column: 1 / -1; color: var(--fan-sub); font-size: 12px; }
+.ipyagu-shop-entry > div { display: flex; grid-column: 1 / -1; align-items: center; gap: 6px; margin-top: 4px; }
+.ipyagu-shop-entry img { width: clamp(38px, 14vw, 60px); height: 56px; padding: 4px; border-radius: 14px; background: var(--fan-raised); object-fit: contain; }
+.ipyagu-shop-entry div > span { margin-inline-start: auto; padding: 8px 10px; border-radius: 999px; background: var(--fan-text); color: var(--fan-bg); font-size: 13px; font-weight: 700; white-space: nowrap; }
+.ipyagu-collection-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }

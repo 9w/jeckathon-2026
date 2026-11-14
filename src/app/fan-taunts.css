@@ -1,5 +1,6 @@
 .fan-taunt-compose,
-.fan-taunt-sent {
+.fan-taunt-sent,
+.fan-taunt-shop {
   position: relative;
   isolation: isolate;
   display: flex;
@@ -34,6 +35,7 @@
 }
 
 .fan-taunt-chip-selected,
+.fan-taunt-chip,
 .fan-taunt-phrases button {
   display: inline-flex;
   min-height: 44px;
@@ -72,6 +74,24 @@
   pointer-events: none;
 }
 
+.fan-taunt-received-art {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fan-taunt-received-decoration {
+  position: absolute;
+  width: clamp(38px, 15vw, 65px);
+  height: auto;
+}
+
+.fan-taunt-received-decoration-top { top: 10%; right: 10%; }
+.fan-taunt-received-decoration-end { top: 18%; right: 6%; }
+.fan-taunt-received-decoration-bottom { right: 16%; bottom: 12%; }
+.fan-taunt-received-decoration-start { bottom: 15%; left: 9%; }
+
 .fan-taunt-preview-burst {
   top: -16px;
   width: min(100%, 310px);
@@ -94,8 +114,13 @@
   text-align: center;
 }
 
-.fan-taunt-preview-card > span,
-.fan-taunt-hero-emoji {
+.fan-taunt-preview-character,
+.fan-taunt-dialog-character {
+  display: block;
+  justify-self: center;
+  width: min(100%, 120px);
+  height: 120px;
+  object-fit: contain;
   font-size: 88px;
   line-height: 1.2;
 }
@@ -129,6 +154,19 @@
   color: var(--fan-sub);
 }
 
+.fan-taunt-catalog-heading,
+.fan-taunt-shop-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.fan-taunt-catalog-heading button {
+  color: var(--fan-accent-text);
+}
+
 .fan-taunt-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -158,9 +196,15 @@
   border-color: var(--fan-accent-text);
 }
 
-.fan-taunt-grid button > span {
-  font-size: 34px;
-  line-height: 1.2;
+.fan-taunt-grid-character {
+  width: 52px;
+  height: 48px;
+  object-fit: contain;
+}
+
+.fan-taunt-grid [data-locked="true"] .fan-taunt-grid-character {
+  opacity: .55;
+  filter: grayscale(.6);
 }
 
 .fan-taunt-grid strong {
@@ -247,6 +291,7 @@
 
 .fan-taunt-dialog-full > .fan-taunt-compose,
 .fan-taunt-dialog-full > .fan-taunt-sent,
+.fan-taunt-dialog-full > .fan-taunt-shop,
 .fan-taunt-received {
   width: 100%;
   max-width: 390px;
@@ -303,7 +348,10 @@
   text-align: center;
 }
 
-.fan-taunt-sent-hero span {
+.fan-taunt-sent-character {
+  width: 120px;
+  height: 110px;
+  object-fit: contain;
   font-size: 64px;
 }
 
@@ -422,7 +470,11 @@
   text-align: start;
 }
 
-.fan-taunt-banner > span:first-child {
+.fan-taunt-banner-character {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  object-fit: contain;
   font-size: 30px;
 }
 
@@ -452,4 +504,139 @@
   flex: none;
   color: var(--fan-sub);
   font-size: 12px;
+}
+
+.fan-taunt-shop .fan-room-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.fan-taunt-shop-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fan-taunt-shop-pack {
+  position: relative;
+  isolation: isolate;
+  min-height: 176px;
+  overflow: hidden;
+  border-radius: 28px;
+  padding: 18px 20px;
+  background: var(--fan-accent);
+}
+
+.fan-taunt-shop-burst {
+  position: absolute;
+  z-index: -2;
+  inset: -60px auto auto 42%;
+  width: 300px;
+  height: 306px;
+  color: var(--fan-bg);
+  opacity: .35;
+}
+
+.fan-taunt-pack-copy {
+  position: relative;
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  max-width: 63%;
+}
+
+.fan-taunt-pack-copy h2 {
+  font-size: clamp(18px, 5vw, 22px);
+  font-weight: 900;
+}
+
+.fan-taunt-pack-copy p {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.fan-taunt-pack-copy button {
+  min-height: 44px;
+  margin-top: 8px;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: #fff;
+  color: var(--fan-accent);
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.fan-taunt-pack-picture {
+  position: absolute;
+  z-index: -1;
+  width: 27%;
+  height: auto;
+  aspect-ratio: 1;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.fan-taunt-pack-picture-first {
+  inset: 10% 3% auto auto;
+}
+
+.fan-taunt-pack-picture-second {
+  inset: 42% 24% auto auto;
+}
+
+.fan-taunt-pack-picture-third {
+  inset: 53% 1% auto auto;
+}
+
+.fan-taunt-shop-label {
+  padding: 5px 8px 0;
+}
+
+.fan-taunt-shop-label h2 {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.fan-taunt-shop-label > span {
+  color: var(--fan-sub);
+  font-size: 13px;
+}
+
+.fan-taunt-shop-grid button {
+  position: relative;
+  min-height: 126px;
+}
+
+.fan-taunt-shop-picture {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
+}
+
+.fan-taunt-shop-grid [data-owned="true"] {
+  color: #62d47f;
+}
+
+.fan-taunt-shop-check {
+  position: absolute;
+  inset: 5px 5px auto auto;
+  display: grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fan-accent);
+  color: #fff;
+  font-size: 12px;
+}
+
+@media (max-width: 350px) {
+  .fan-taunt-pack-picture-second {
+    display: none;
+  }
+
+  .fan-taunt-catalog h2 {
+    padding-inline-start: 0;
+    font-size: 14px;
+  }
 }

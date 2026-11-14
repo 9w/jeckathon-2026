@@ -142,6 +142,35 @@ export async function getFanTaunt(id: string): Promise<FanTaunt | null> {
   return data;
 }
 
+export type FanCardCollection = { team: Team; ownedCardIds: string[]; points: number };
+export type FanProfileStats = { hits: number; tries: number; sent: number };
+
+export async function loadFanCardCollection(): Promise<FanCardCollection> {
+  const { data, error } = await supabase().rpc("get_fan_card_collection");
+  if (error) throw error;
+  return data;
+}
+
+export async function buyFanCard(requestId: string, cardId?: string): Promise<FanCardCollection & { charged: number }> {
+  const { data, error } = cardId
+    ? await supabase().rpc("buy_fan_card", { p_card_id: cardId, p_request_id: requestId })
+    : await supabase().rpc("buy_fan_card_pack", { p_request_id: requestId });
+  if (error) throw error;
+  return data;
+}
+
+export async function loadFanProfileStats(): Promise<FanProfileStats> {
+  const { data, error } = await supabase().rpc("get_fan_profile_stats");
+  if (error) throw error;
+  return data;
+}
+
+export async function loadFanCampPresence(): Promise<Record<Team, number>> {
+  const { data, error } = await supabase().rpc("get_fan_camp_presence");
+  if (error) throw error;
+  return data;
+}
+
 export async function sendFanTaunt(cardId: string, phraseId: string, requestId: string, replyTo?: string): Promise<{ taunt: FanTaunt; points: number }> {
   const { data, error } = await supabase().rpc("send_fan_taunt", {
     p_card_id: cardId,

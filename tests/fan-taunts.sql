@@ -42,7 +42,7 @@ begin
   perform set_config('request.jwt.claim.sub', sender::text, true);
   perform public.fan_taunt_activity(true);
   begin
-    perform public.send_fan_taunt('first', 'default', request_id);
+    perform public.send_fan_taunt('lg1', 'default', request_id);
     raise exception 'Sent with no active opponent.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -65,24 +65,24 @@ begin
     get stacked diagnostics rejected = pg_exception_detail;
     if rejected <> 'invalid_selection' then raise; end if;
   end;
-  receipt := public.send_fan_taunt('turtle', 'default', request_id);
+  receipt := public.send_fan_taunt('lg4', 'default', request_id);
   message_id := (receipt -> 'taunt' ->> 'id')::uuid;
   if message_id is null or receipt ->> 'points' <> '100'
     or receipt -> 'taunt' ->> 'recipientNickname' <> '잠실팬'
     or receipt -> 'taunt' ? 'recipientId' then
     raise exception 'Invalid receipt %.', receipt;
   end if;
-  replay_receipt := public.send_fan_taunt('turtle', 'default', request_id);
+  replay_receipt := public.send_fan_taunt('lg4', 'default', request_id);
   if replay_receipt <> receipt then raise exception 'Retry changed the receipt.'; end if;
   begin
-    perform public.send_fan_taunt('first', 'default', request_id);
+    perform public.send_fan_taunt('lg1', 'default', request_id);
     raise exception 'Accepted a changed request payload.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
     if rejected <> 'request_conflict' then raise; end if;
   end;
   begin
-    perform public.send_fan_taunt('first', 'default', other_id);
+    perform public.send_fan_taunt('lg1', 'default', other_id);
     raise exception 'Ignored the sender cooldown.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -99,7 +99,7 @@ begin
     raise exception 'Unrelated fan obtained a private message.';
   end if;
   begin
-    perform public.send_fan_taunt('first', 'default', other_id, message_id);
+    perform public.send_fan_taunt('lg1', 'default', other_id, message_id);
     raise exception 'Unrelated fan sent a counter.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -113,13 +113,13 @@ begin
   if read_at is null or public.read_fan_taunt(message_id) ->> 'readAt' <> read_at then
     raise exception 'Read receipt was missing or changed on retry.';
   end if;
-  receipt := public.send_fan_taunt('violin', 'next', counter_id, message_id);
+  receipt := public.send_fan_taunt('ds4', 'next', counter_id, message_id);
   if receipt ->> 'points' <> '0'
     or receipt -> 'taunt' ->> 'replyTo' <> message_id::text
     or receipt -> 'taunt' ->> 'recipientNickname' <> '직관팬' then
     raise exception 'Counter did not go to the original sender.';
   end if;
-  if public.send_fan_taunt('violin', 'next', counter_id, message_id) <> receipt then
+  if public.send_fan_taunt('ds4', 'next', counter_id, message_id) <> receipt then
     raise exception 'Counter retry changed the receipt.';
   end if;
 
@@ -152,14 +152,14 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claim.sub', receiver::text, true);
   begin
-    perform public.send_fan_taunt('first', 'default', second_request, first_message);
+    perform public.send_fan_taunt('ds1', 'default', second_request, first_message);
     raise exception 'Accepted a second counter.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
     if rejected <> 'invalid_reply' then raise; end if;
   end;
   begin
-    perform public.send_fan_taunt('first', 'default', second_request);
+    perform public.send_fan_taunt('ds1', 'default', second_request);
     raise exception 'Sent with zero points.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -168,7 +168,7 @@ begin
 
   perform set_config('request.jwt.claim.sub', sender::text, true);
   begin
-    perform public.send_fan_taunt('first', 'default', second_request);
+    perform public.send_fan_taunt('lg1', 'default', second_request);
     raise exception 'Targeted the same recipient twice in a minute.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -180,7 +180,7 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claim.sub', stranger::text, true);
   begin
-    perform public.send_fan_taunt('first', 'default', second_request);
+    perform public.send_fan_taunt('lg1', 'default', second_request);
     raise exception 'Sent to a stale active fan.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -198,7 +198,7 @@ begin
   set local role authenticated;
   perform set_config('request.jwt.claim.sub', stranger::text, true);
   begin
-    perform public.send_fan_taunt('first', 'default', second_request);
+    perform public.send_fan_taunt('lg1', 'default', second_request);
     raise exception 'Exceeded recipient limit despite elapsed receive interval.' using errcode = 'ZX001';
   exception when sqlstate 'P0001' then
     get stacked diagnostics rejected = pg_exception_detail;
@@ -208,7 +208,7 @@ begin
   perform set_config('request.jwt.claim.sub', alternate::text, true);
   perform public.fan_taunt_activity(true);
   perform set_config('request.jwt.claim.sub', stranger::text, true);
-  receipt := public.send_fan_taunt('first', 'wager', second_request);
+  receipt := public.send_fan_taunt('lg1', 'tease', second_request);
   if receipt -> 'taunt' ->> 'recipientNickname' <> '원정팬' or receipt ->> 'points' <> '0' then
     raise exception 'Failed to select the alternative receiver.';
   end if;

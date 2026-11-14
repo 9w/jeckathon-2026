@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import Image from "next/image";
 import {
   castReplayVote,
   getFanTaunt,
   isSupabaseConfigured,
   joinFan,
+  loadFanCampPresence,
+  loadFanProfileStats,
   loadSharedReplay,
   resetFanSession,
   restoreFan,
@@ -13,13 +16,19 @@ import {
   updateTauntActivity,
   type Choice,
   type FanProfile,
+  type FanProfileStats,
   type SharedReplay,
   type Team,
 } from "@/lib/fan-session";
 import { normalizeNickname } from "@/lib/nickname";
+import { encodeFanAvatar, loadFanAvatar, storeFanAvatar } from "@/lib/fan-avatar";
+import { teamTauntCards, type FanTaunt } from "@/lib/fan-taunts";
 import { FanSheet, randomNicknames, setupProgress, TeamDots, TeamSheet, teams } from "./fan-setup";
 import { PlateReplay, type ReplayMatchState } from "./plate-replay";
 import { FanTaunts } from "./fan-taunts";
+import { FanProfileScreen } from "./fan-profile";
+import { FanTauntShop } from "./fan-taunt-shop";
+import { useFanCollection } from "./use-fan-collection";
 import { useFanTaunts } from "./use-fan-taunts";
 import { ReplayControl } from "./replay-control";
 import { formatElapsed } from "@/lib/replay/clock";
@@ -37,6 +46,7 @@ const roomMessages = {
   revealed: "다음 타석을 기다리고 있어요.",
   finished: "경기가 끝났어요.",
 };
+const teamLogo = { lg: "/ipyagu/logo_lg.webp", doosan: "/ipyagu/logo_ds.webp" };
 
 function replayInvite() {
   const id = new URLSearchParams(window.location.search).get("room");
@@ -66,7 +76,12 @@ function Burst({ className = "" }: { className?: string }) {
 export function FanGame() {
   const [screen, setScreen] = useState<"start" | "setup" | "home" | "room" | "record">("start");
   const [teamSheet, setTeamSheet] = useState(false);
-  const [infoSheet, setInfoSheet] = useState<"howto" | "taunt" | "share" | null>(null);
+  const [infoSheet, setInfoSheet] = useState<"howto" | "taunt" | "shop" | "share" | null>(null);
+  const [counterTarget, setCounterTarget] = useState<FanTaunt | null>(null);
+  const [initialCardId, setInitialCardId] = useState<string>();
+  const [profileStats, setProfileStats] = useState<FanProfileStats>();
+  const [camp, setCamp] = useState<Record<Team, number>>();
+  const [avatarError, setAvatarError] = useState("");
   const [draftTeam, setDraftTeam] = useState<Team>("lg");
   const [lockedTeam, setLockedTeam] = useState<Team | null>(null);
   const [avatar, setAvatar] = useState("");
@@ -82,16 +97,14 @@ export function FanGame() {
   const [error, setError] = useState<{ field: "team" | "nickname" | "vote" | "reset"; message: string } | null>(null);
   const [restoreError, setRestoreError] = useState(false);
   const [restoreAttempt, setRestoreAttempt] = useState(0);
-  const [editingNickname, setEditingNickname] = useState(false);
   const [nickname, setNickname] = useState(randomNicknames[0]);
-  const [recordTauntOpen, setRecordTauntOpen] = useState(false);
   const predictionSection = useRef<HTMLElement>(null);
   const updatePoints = useCallback((points: number) => {
     setProfile((current) => current ? { ...current, points } : current);
   }, []);
   const taunts = useFanTaunts(profile?.id, updatePoints);
+  const collection = useFanCollection(profile?.id, updatePoints);
   const screenHeading = useRef<HTMLHeadingElement>(null);
-  const nicknameButton = useRef<HTMLButtonElement>(null);
   const avatarInput = useRef<HTMLInputElement>(null);
   const setupNickname = normalizeNickname(nickname);
   const nicknameValid = setupNickname !== null && [...setupNickname].length <= 10;
@@ -110,7 +123,8 @@ export function FanGame() {
           return;
         }
         setProfile(current);
-        setScreen("room");
+        setAvatar(loadFanAvatar(current.id));
+        setScreen(replayInvite() ? "room" : "home");
       })
       .catch(() => {
         if (active) setRestoreError(true);
@@ -152,12 +166,26 @@ export function FanGame() {
     if (screen !== "start") screenHeading.current?.focus({ preventScroll: true });
   }, [screen]);
 
-  useEffect(() => () => {
-    if (avatar) URL.revokeObjectURL(avatar);
-  }, [avatar]);
+  useEffect(() => {
+    if (!playerId || screen !== "record") return;
+    let live = true;
+    void loadFanProfileStats().then((stats) => { if (live) setProfileStats(stats); }).catch(() => {});
+    return () => { live = false; };
+  }, [playerId, screen, infoSheet]);
+
+  useEffect(() => {
+    if (!playerId || screen !== "home") return;
+    let live = true;
+    const refresh = () => void loadFanCampPresence().then((counts) => { if (live) setCamp(counts); }).catch(() => {});
+    refresh();
+    const timer = window.setInterval(refresh, 12000);
+    return () => { live = false; window.clearInterval(timer); };
+  }, [playerId, screen]);
 
   function goTo(next: typeof screen) {
     setInfoSheet(null);
+    setCounterTarget(null);
+    setInitialCardId(undefined);
     setError(null);
     setScreen(next);
     window.scrollTo(0, 0);
@@ -171,10 +199,36 @@ export function FanGame() {
     });
   }
 
-  function chooseAvatar(event: ChangeEvent<HTMLInputElement>) {
+  function openShop() {
+    void collection.refresh();
+    setInfoSheet("shop");
+    window.scrollTo(0, 0);
+  }
+
+  function openTaunt(cardId?: string, target: FanTaunt | null = null) {
+    void collection.refresh();
+    setInitialCardId(cardId);
+    setCounterTarget(target);
+    setInfoSheet("taunt");
+    window.scrollTo(0, 0);
+  }
+
+  function closeTaunt() {
+    setInfoSheet(null);
+    setCounterTarget(null);
+    setInitialCardId(undefined);
+  }
+
+  async function chooseAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
-    if (file?.type.startsWith("image/")) setAvatar(URL.createObjectURL(file));
     event.target.value = "";
+    if (!file) return;
+    setAvatarError("");
+    try {
+      setAvatar(await encodeFanAvatar(file));
+    } catch (cause) {
+      setAvatarError(cause instanceof Error ? cause.message : "사진을 열지 못했어요.");
+    }
   }
 
   async function enterGame(event: FormEvent<HTMLFormElement>) {
@@ -187,8 +241,11 @@ export function FanGame() {
       setLockedTeam(joined.team);
       setDraftTeam(joined.team);
       const saved = await saveNickname(joined.id, setupNickname);
+      if (avatar) {
+        try { storeFanAvatar(joined.id, avatar); } catch { /* The session still has the selected picture. */ }
+      }
       setProfile({ ...joined, nickname: saved });
-      goTo("room");
+      goTo(replayInvite() ? "room" : "home");
     } catch {
       setError({ field: "team", message: "입장 정보를 저장하지 못했어요. 다시 시도해 주세요." });
     } finally {
@@ -196,29 +253,27 @@ export function FanGame() {
     }
   }
 
-  function closeNickname() {
-    setEditingNickname(false);
-    setError(null);
-    nicknameButton.current?.focus();
-  }
-
-  async function submitNickname(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function submitProfile(nickname: string, photo?: File) {
     if (pending || !profile) return;
     const normalized = normalizeNickname(nickname);
-    if (!normalized) {
-      setError({ field: "nickname", message: "닉네임을 2~16자로 입력해 주세요." });
-      return;
+    if (!normalized || (normalized !== profile.nickname && [...normalized].length > 10)) {
+      throw new Error("닉네임을 2~10자로 입력해 주세요.");
     }
-
     setPending("nickname");
-    setError(null);
     try {
-      const saved = await saveNickname(profile.id, normalized);
+      const nextAvatar = photo ? await encodeFanAvatar(photo) : null;
+      let saved = profile.nickname;
+      if (normalized !== saved) {
+        try { saved = await saveNickname(profile.id, normalized); }
+        catch { throw new Error("닉네임을 저장하지 못했어요. 다른 닉네임으로 다시 시도해 주세요."); }
+      }
       setProfile((current) => current ? { ...current, nickname: saved } : current);
-      closeNickname();
-    } catch {
-      setError({ field: "nickname", message: "닉네임을 저장하지 못했습니다. 다시 시도해 주세요." });
+      if (nextAvatar) {
+        try { storeFanAvatar(profile.id, nextAvatar); }
+        catch { throw new Error("이 브라우저에 사진을 저장하지 못했어요."); }
+        setAvatar(nextAvatar);
+      }
+      goTo("home");
     } finally {
       setPending(null);
     }
@@ -250,7 +305,9 @@ export function FanGame() {
       await updateTauntActivity(false).catch(() => {});
       await resetFanSession();
       taunts.reset();
-      setRecordTauntOpen(false);
+      collection.reset();
+      setProfileStats(undefined);
+      setCamp(undefined);
       setProfile(null);
       setRoom(undefined);
       setRoomError(false);
@@ -258,8 +315,8 @@ export function FanGame() {
       setDraftTeam("lg");
       setLockedTeam(null);
       setAvatar("");
+      setAvatarError("");
       setMatch(null);
-      setEditingNickname(false);
       goTo("start");
     } catch {
       setError({ field: "reset", message: "초기화하지 못했습니다. 다시 시도해 주세요." });
@@ -280,6 +337,10 @@ export function FanGame() {
   const matchScore = match?.awayScore !== undefined && match.homeScore !== undefined
     ? `${match.awayScore} : ${match.homeScore}`
     : null;
+  const currentBatter = sharedRoom?.batter ?? match?.batter;
+  const battingTeam = sharedRoom?.batter ? (sharedRoom.half === "top" ? "lg" : "doosan") : match?.battingTeam === "LG" ? "lg" : "doosan";
+  const fullScreenSheet = infoSheet === "taunt" || infoSheet === "shop";
+  const campTotal = camp ? camp.lg + camp.doosan : 0;
   const showRestoreStatus = pending === "restore" || restoreError || !isSupabaseConfigured;
   const avatarMark = avatar
     ? <span className="fan-avatar-image" style={{ backgroundImage: `url("${avatar}")` }} />
@@ -300,16 +361,13 @@ export function FanGame() {
   return (
     <main className="fan-stage" data-team={profile?.team ?? (screen === "setup" ? draftTeam : "lg")}>
       {screen === "start" && (
-        <section className="fan-welcome">
-          <Burst className="fan-welcome-burst" />
+        <section className="fan-welcome ipyagu-welcome">
+          <Burst className="fan-welcome-burst ipyagu-welcome-burst" />
           <div className="fan-welcome-copy">
-            <h1>야구 팬덤 대결</h1>
-            <p>경기는 선수들이,<br />신경전은 팬들이!</p>
-            <small><span aria-hidden="true">●</span> 리플레이 · LG vs 두산 · 잠실</small>
+            <h1><Image src="/ipyagu/wordmark.svg" width={233} height={215} alt="입야구" priority unoptimized /></h1>
           </div>
           <div className="fan-stage-bottom">
             <button type="button" className="fan-stage-button" onClick={() => goTo("setup")} disabled={showRestoreStatus}>입장하기</button>
-            <p className="fan-status">야구 몰라도 30초면 시작해요</p>
             {pending === "restore" && <p role="status" className="fan-status">참가 정보를 확인하고 있어요.</p>}
             {!isSupabaseConfigured && <p role="status" className="fan-status">서버 연결 설정이 필요합니다.</p>}
             {restoreError && <div className="fan-stage-error">
@@ -353,6 +411,7 @@ export function FanGame() {
             </div>
           </div>
           <section className="fan-camp" aria-labelledby="camp-heading">
+            {avatarError && <p role="alert" className="fan-error">{avatarError}</p>}
             <h2 id="camp-heading">응원 진영</h2>
             <p>오늘 경기는 LG vs 두산이에요</p>
             <button type="button" className="fan-camp-picker" aria-haspopup="dialog" onClick={() => setTeamSheet(true)} disabled={pending !== null || lockedTeam !== null}>
@@ -370,9 +429,8 @@ export function FanGame() {
       )}
       {screen === "setup" && teamSheet && <TeamSheet selected={draftTeam} onSelect={setDraftTeam} onClose={() => setTeamSheet(false)} />}
 
-      {profile && screen === "home" && infoSheet !== "taunt" && (
-        <section className="fan-lobby">
-          <Burst className="fan-lobby-burst" />
+      {profile && screen === "home" && !fullScreenSheet && (
+        <section className="fan-lobby ipyagu-lobby">
           <header className="fan-lobby-header">
             <h1 ref={screenHeading} tabIndex={-1}>야구 팬덤 대결</h1>
             <button type="button" className="fan-profile-chip" onClick={() => goTo("record")}>
@@ -381,43 +439,51 @@ export function FanGame() {
           </header>
           <div className="fan-lobby-intro">
             <h2>경기는 선수들이,<br />신경전은 팬들이!</h2>
-            <p>야구 몰라도 괜찮아요. 일단 친구부터 이겨보세요.</p>
+            <p>규칙은 몰라도 괜찮으니까, 일단 이기고 보자</p>
           </div>
-          <div className="fan-lobby-match">
+          <button type="button" className="fan-lobby-match ipyagu-match" aria-label="LG 두산 경기방으로 들어가기" onClick={() => goTo("room")}>
             <span className="fan-match-tag">리플레이 · {innings ?? match?.inning ?? "잠실"}</span>
-            <div className="fan-lobby-score"><strong>LG</strong><span className="fan-replay-number">{matchScore ?? "vs"}</span><strong>두산</strong></div>
-            <div className="fan-lobby-match-footer">
-              <span>9월 3일 경기</span>
-              <button type="button" className="fan-stage-button fan-stage-white" onClick={() => goTo("room")}>참전하기 →</button>
+            <div className="fan-lobby-score">
+              <span><Image src={teamLogo.lg} width={55} height={44} alt="" unoptimized /><strong>LG</strong></span>
+              <span className="fan-replay-number">{matchScore ?? "vs"}</span>
+              <span><Image src={teamLogo.doosan} width={44} height={44} alt="" unoptimized /><strong>두산</strong></span>
             </div>
-          </div>
-          <div className="fan-guide-title"><h2>어떻게 하는 게임인가요?</h2><button type="button" className="fan-quiet-button underline" onClick={() => setInfoSheet("howto")}>30초 설명</button></div>
-          <ol className="fan-guide">
-            <li><button type="button" onClick={() => goTo("room")}><span>1</span><strong>다음 타자, 살아남을까?<small>출루 또는 아웃 예측</small></strong><i aria-hidden="true">⚾</i></button></li>
-            <li><button type="button" onClick={() => setInfoSheet("howto")}><span>2</span><strong>실제 타석 결과 확인<small>투표 마감 후 경기 결과 공개</small></strong><i aria-hidden="true">✓</i></button></li>
-            <li><button type="button" onClick={() => setInfoSheet("taunt")}><span>3</span><strong>상대팀 팬에게 한 방!<small>포인트로 도발 카드 전송</small></strong><i aria-hidden="true">😈</i></button></li>
-          </ol>
+            <div className="ipyagu-match-batter">
+              <span>지금 타석</span>
+              <div>{currentBatter && <Image src={teamLogo[battingTeam]} width={40} height={40} alt="" unoptimized />}<strong>{currentBatter ?? "경기방에서 확인"}</strong><span className="ipyagu-match-state">{sharedRoom?.phase === "open" ? `투표 중 ${sharedRoom.secondsLeft}초` : "경기방 ›"}</span></div>
+            </div>
+            <div className="ipyagu-camp" aria-label="진영 대결">
+              <div><span>LG 팬 {camp?.lg ?? "–"}명</span><span>진영 대결</span><span>두산 팬 {camp?.doosan ?? "–"}명</span></div>
+              <div className="ipyagu-camp-bar" aria-hidden="true">{camp && campTotal > 0 && <><span style={{ flexGrow: camp.lg }} /><span style={{ flexGrow: camp.doosan }} /></>}</div>
+            </div>
+          </button>
+          <button type="button" className="ipyagu-shop-entry" onClick={openShop}>
+            <strong>이모티콘 상점</strong><span>보유 {profile.points.toLocaleString("ko-KR")}P</span>
+            <small>맞혀서 모은 포인트로 도발 이모티콘 구매</small>
+            <div>{[1, 2, 5].map((i) => <Image key={i} src={teamTauntCards[profile.team][i].image!} width={58} height={58} alt="" unoptimized />)}<span>상점 가기 ›</span></div>
+          </button>
+          <button type="button" className="fan-quiet-button underline" onClick={() => setInfoSheet("howto")}>어떻게 하는 게임인가요?</button>
           <button type="button" className="fan-stage-button fan-stage-white" onClick={() => goTo("room")}>지금 참전하기</button>
         </section>
       )}
 
       {profile && (screen === "room" || match !== null) && (
-        <section className="fan-room" hidden={screen !== "room" || infoSheet === "taunt"} aria-label="경기방">
+        <section className="fan-room" hidden={screen !== "room" || fullScreenSheet} aria-label="경기방">
           <header className="fan-room-header">
             <button type="button" className="fan-back" aria-label="홈으로 돌아가기" onClick={() => goTo("home")}>‹</button>
             <span>{innings ? `LG vs 두산 · ${innings}` : matchScore ? `${match?.inning} · ${match?.outs}아웃 · LG ${matchScore} 두산` : "LG vs 두산 · 리플레이"}</span>
-            <span className="fan-points" aria-label={`내 포인트 ${profile.points}점`}>{profile.points.toLocaleString("ko-KR")}P</span>
+            <button type="button" className="fan-points" aria-label={`내 포인트 ${profile.points}점 · 이모티콘 상점`} onClick={openShop}>{profile.points.toLocaleString("ko-KR")}P</button>
           </header>
           <div className="fan-room-hero">
             <Burst className="fan-room-burst" />
             {sharedRoom?.batter ? (
               <div className="fan-room-player">
-                <span className="fan-room-player-avatar" aria-hidden="true">{[...sharedRoom.batter][0]}</span>
+                <span className="fan-room-player-avatar" aria-hidden="true"><Image src={teamLogo[battingTeam]} width={55} height={55} alt="" unoptimized /></span>
                 <div><h2>{sharedRoom.batter}</h2><p>{innings} · {sharedRoom.half === "top" ? sharedRoom.away : sharedRoom.home} 공격</p></div>
               </div>
             ) : match ? (
               <div className="fan-room-player">
-                <span className="fan-room-player-avatar" aria-hidden="true">{[...match.batter][0]}</span>
+                <span className="fan-room-player-avatar" aria-hidden="true"><Image src={teamLogo[battingTeam]} width={55} height={55} alt="" unoptimized /></span>
                 <div><h2>{match.batter}</h2><p>{match.battingTeam} · 현재 타자</p></div>
               </div>
             ) : <div><h2>LG 트윈스 vs 두산 베어스</h2><p>9월 3일 · 잠실</p></div>}
@@ -443,57 +509,23 @@ export function FanGame() {
           {process.env.NODE_ENV === "development" && room === null && <PlateReplay onMatchChange={setMatch} />}
           <nav className="fan-room-tabs" aria-label="경기 메뉴">
             <button type="button" aria-current="page" onClick={() => window.scrollTo(0, 0)}><span aria-hidden="true">⚾</span>경기방</button>
-            <button type="button" onClick={() => setInfoSheet("taunt")}><span aria-hidden="true">😈</span>도발하기</button>
+            <button type="button" onClick={() => openTaunt()}><span aria-hidden="true">😈</span>도발하기</button>
             <button type="button" disabled={!sharedRoom} onClick={() => { setShareMessage(""); setInfoSheet("share"); }}><span aria-hidden="true">↗</span>경기 공유</button>
             <button type="button" onClick={() => goTo("record")}><span aria-hidden="true">★</span>내 기록</button>
           </nav>
         </section>
       )}
 
-      {profile && screen === "record" && (
-        <section className="fan-record">
-          <header className="fan-room-header">
-            <button type="button" className="fan-back" aria-label="홈으로 돌아가기" onClick={() => goTo("home")}>‹</button>
-            <h1 ref={screenHeading} tabIndex={-1}>내 기록</h1>
-            <button type="button" className="fan-quiet-button" disabled={pending !== null} onClick={resetParticipation}>{pending === "reset" ? "초기화 중…" : "초기화"}</button>
-          </header>
-          <div className="fan-record-card fan-replay-board">
-            <span className="fan-small-avatar" aria-hidden="true">{avatarMark}</span>
-            <strong>{profile.nickname}</strong>
-            <p>{team.label} · {profile.points.toLocaleString("ko-KR")}P</p>
-            <p>{vote ? `내 예측 · ${choices.find(({ value }) => value === vote)?.label}` : "아직 저장된 예측이 없어요."}</p>
-            <button ref={nicknameButton} type="button" className="fan-quiet-button underline" aria-expanded={editingNickname} aria-controls={editingNickname ? "nickname-form" : undefined} disabled={pending !== null} onClick={() => {
-              if (editingNickname) { closeNickname(); return; }
-              setNickname(profile.nickname ?? "");
-              setError(null);
-              setEditingNickname(true);
-            }}>닉네임 변경</button>
-            {editingNickname && (
-              <form id="nickname-form" onSubmit={submitNickname}>
-                <label htmlFor="nickname">닉네임</label>
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
-                  <input id="nickname" value={nickname} onChange={(event) => { setNickname(event.target.value); if (error?.field === "nickname") setError(null); }} autoFocus autoComplete="off" placeholder="2~16자" aria-invalid={error?.field === "nickname"} aria-describedby={error?.field === "nickname" ? "nickname-error" : undefined} disabled={pending !== null} className="fan-input" />
-                  <button type="submit" disabled={pending !== null} className="fan-save-button">{pending === "nickname" ? "저장 중" : "저장"}</button>
-                  <button type="button" disabled={pending !== null} onClick={closeNickname} className="fan-quiet-button">취소</button>
-                </div>
-                {error?.field === "nickname" && <p id="nickname-error" role="alert" className="fan-error">{error.message}</p>}
-              </form>
-            )}
-          </div>
-          {error?.field === "reset" && <p role="alert" className="fan-error">{error.message}</p>}
-          {taunts.inbox.length > 0 && (
-            <section className="fan-record-card fan-replay-board" aria-label="받은 도발">
-              <h2 className="font-bold">받은 도발</h2>
-              {taunts.inbox.map((message) => (
-                <button key={message.id} type="button" className="fan-quiet-button underline" onClick={() => {
-                  setRecordTauntOpen(true);
-                  taunts.open(message);
-                }}>{message.senderNickname ?? "상대 팬"}님의 도발 보기</button>
-              ))}
-            </section>
-          )}
-          <button type="button" className="fan-stage-button" onClick={() => goTo("room")}>경기방으로 돌아가기</button>
-        </section>
+      {profile && screen === "record" && !fullScreenSheet && (
+        <FanProfileScreen key={profile.id} nickname={profile.nickname ?? ""} team={profile.team}
+          points={profile.points} avatar={avatar} inbox={taunts.inbox} stats={profileStats}
+          pending={pending !== null} onSave={submitProfile} onBack={() => goTo("home")}
+          onReset={() => void resetParticipation()} resetError={error?.field === "reset" ? error.message : undefined}
+          onCounter={(message) => {
+            taunts.dismiss(message.id);
+            if (!message.readAt) void taunts.read(message.id, false).catch(() => {});
+            openTaunt(undefined, message);
+          }} />
       )}
 
       {infoSheet === "howto" && (
@@ -508,14 +540,28 @@ export function FanGame() {
       )}
       {profile && (
         <FanTaunts points={profile.points} opposingTeam={teams[profile.team === "lg" ? "doosan" : "lg"].short}
+          team={profile.team} ownedCardIds={collection.data?.ownedCardIds ?? []} available={collection.data !== null && !collection.failure}
+          onBuyCard={collection.buy} onBuyPack={() => collection.buy()} initialCardId={initialCardId}
+          counterTarget={counterTarget} onClearCounter={() => setCounterTarget(null)}
           active={infoSheet === "taunt"} incoming={infoSheet === null ? taunts.incoming : null}
-          showIncomingBanner={screen === "room" && !recordTauntOpen}
-          onDismissIncoming={() => { setRecordTauntOpen(false); taunts.dismiss(); }}
+          showIncomingBanner={screen === "room" || screen === "record"}
+          onDismissIncoming={() => taunts.dismiss()}
           onRead={taunts.read} onSend={taunts.send} onReceipt={getFanTaunt}
-          onClose={() => { setInfoSheet(null); if (infoSheet !== "taunt") goTo("room"); }}
+          onClose={closeTaunt}
           onPrediction={goToPrediction}
           renderBurst={(className) => <Burst className={className} />}
         />
+      )}
+      {profile && infoSheet === "shop" && (
+        <FanTauntShop team={profile.team} points={profile.points} ownedCardIds={collection.data?.ownedCardIds ?? []}
+          onBuyCard={collection.buy} onBuyPack={() => collection.buy()} available={collection.data !== null && !collection.failure}
+          onClose={closeTaunt} onUseCard={openTaunt} renderBurst={(className) => <Burst className={className} />} />
+      )}
+      {profile && fullScreenSheet && collection.failure && (
+        <div className="ipyagu-collection-error">
+          <p role="alert" className="fan-error">보유 카드를 불러오지 못했어요.</p>
+          <button className="fan-control" type="button" onClick={() => void collection.refresh()}>다시 시도</button>
+        </div>
       )}
       {infoSheet === "share" && (
         <FanSheet title={`${profile?.nickname}님의 도전장!`} onClose={() => setInfoSheet(null)}>
