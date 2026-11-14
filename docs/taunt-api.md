@@ -31,7 +31,7 @@ Supabase 프로젝트에 마이그레이션을 순서대로 적용해야 한다(
 3. `supabase/migrations/20261114160000_nickname_required_unique.sql`
 4. `supabase/migrations/20261114170000_fan_heartbeat.sql`
 5. `supabase/migrations/20261114180000_random_taunt.sql`
-6. `supabase/migrations/20261114190000_design_cards.sql` (시안 카드·문구, 입장 300P)
+6. `supabase/migrations/20261114190000_design_cards.sql` (시안 카드·문구)
 
 ## 인증
 
@@ -336,7 +336,6 @@ Authorization: Bearer <access_token>
 
 | 항목 | 값 | 위치 |
 | --- | --- | --- |
-| 시작 포인트 | 입장 시 300P | `fan_profiles.points` 기본값 |
 | 카드 비용 | 카드별 `cost` (현재 모두 100P) | `taunt_cards.cost` |
 | 대상 | 상대팀, 닉네임 있음, 최근 10분 내 활동 | `list_taunt_targets`, `send_taunt` |
 | 보내는 쿨타임 | 10초 | `send_taunt` |
@@ -462,7 +461,7 @@ supabase/migrations/
 ├─ 20261114160000_nickname_required_unique.sql   닉네임 중복 금지·필수
 ├─ 20261114170000_fan_heartbeat.sql              활동 신호 RPC
 ├─ 20261114180000_random_taunt.sql               불특정 1명 놀리기 RPC
-└─ 20261114190000_design_cards.sql              시안 카드·문구, 입장 300P
+└─ 20261114190000_design_cards.sql              시안 카드·문구
 ```
 
 DB 객체

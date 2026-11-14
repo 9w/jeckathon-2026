@@ -1,8 +1,5 @@
--- 디자인 시안 반영
---   1) 놀리기 카드: 팀 공통 이모지 카드 6장 + 정해진 문구 5개 중 선택
---   2) 입장 시 300P
+-- 디자인 시안 반영: 놀리기 카드를 팀 공통 이모지 카드 6장 + 정해진 문구 5개 중 선택으로 바꾼다.
 
--- 1) 카드 ---------------------------------------------------------------
 alter table public.taunt_cards
   alter column target_team drop not null,
   add column emoji text,
@@ -262,6 +259,3 @@ $$;
 
 revoke all on function public.list_received_taunts(boolean, integer) from public, anon, authenticated;
 grant execute on function public.list_received_taunts(boolean, integer) to authenticated;
-
--- 2) 입장 시 300P -------------------------------------------------------
-alter table public.fan_profiles alter column points set default 300;
