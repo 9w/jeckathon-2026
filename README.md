@@ -2,6 +2,17 @@
 
 Next.js(App Router) + Tailwind CSS 기반 모바일 웹. Vercel로 배포한다.
 
+## 접속 방법
+
+**https://jeckathon-2026.vercel.app**
+
+- 휴대폰 브라우저(Safari / Chrome)에서 위 주소로 접속
+- 앱처럼 쓰기 (주소창 없이 전체 화면 실행)
+  - **iPhone (Safari)**: 하단 공유 버튼 → "홈 화면에 추가"
+  - **Android (Chrome)**: 우측 상단 ⋮ 메뉴 → "홈 화면에 추가" 또는 "앱 설치"
+- PC에서 모바일 화면으로 보려면 개발자 도구(F12) → 기기 툴바(Ctrl/Cmd+Shift+M)
+- 브랜치/PR 프리뷰 주소는 Vercel 대시보드 또는 GitHub PR의 Vercel 봇 코멘트에서 확인
+
 ## 로컬 개발
 
 ```bash
@@ -20,16 +31,13 @@ pnpm dev          # http://localhost:3000
 
 ## Vercel 배포
 
-**GitHub 연동 (권장)**
+GitHub 연동 완료 (Vercel 프로젝트: `qwer9w-gmailcoms-projects/jeckathon-2026`)
 
-1. 이 저장소를 GitHub에 push
-2. https://vercel.com/new 에서 `9w/jeckathon-2026` Import
-3. 설정은 자동 감지(Framework: Next.js, Install: `pnpm install`, Build: `next build`) 그대로 Deploy
-4. 이후 `main` push → 프로덕션 배포, 다른 브랜치/PR → 프리뷰 배포
+- `main` push → 프로덕션(https://jeckathon-2026.vercel.app) 자동 배포
+- 다른 브랜치 push / PR → 프리뷰 URL 자동 생성
 
-**CLI**
+로그 확인 (CLI, 로컬 폴더가 link 안 된 경우 scope/project 지정):
 
 ```bash
-pnpm dlx vercel        # 최초 실행 시 로그인·프로젝트 연결, 프리뷰 배포
-pnpm dlx vercel --prod # 프로덕션 배포
+pnpm dlx vercel logs --scope qwer9w-gmailcoms-projects --project jeckathon-2026 --query 'level:error'
 ```
