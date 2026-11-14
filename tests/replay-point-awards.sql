@@ -7,10 +7,10 @@ insert into auth.users (id) values
   ('00000000-0000-4000-8000-a10000000003'),
   ('00000000-0000-4000-8000-a10000000004');
 
-insert into public.fan_profiles (id, team, nickname) values
-  ('00000000-0000-4000-8000-a10000000001', 'lg', '검증적중팬'),
-  ('00000000-0000-4000-8000-a10000000002', 'doosan', '검증실패팬'),
-  ('00000000-0000-4000-8000-a10000000003', 'lg', '검증관전팬');
+insert into public.fan_profiles (id, team, nickname, points) values
+  ('00000000-0000-4000-8000-a10000000001', 'lg', '검증적중팬', 0),
+  ('00000000-0000-4000-8000-a10000000002', 'doosan', '검증실패팬', 0),
+  ('00000000-0000-4000-8000-a10000000003', 'lg', '검증관전팬', 0);
 
 insert into public.replay_games (id, played_on, away, home, duration_seconds)
 values ('award-fixture', '2026-09-03', 'LG', '두산', 220);

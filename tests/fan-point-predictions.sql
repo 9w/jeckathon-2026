@@ -7,10 +7,10 @@ insert into auth.users (id) values
   ('00000000-0000-4000-8000-0cc000000003'),
   ('00000000-0000-4000-8000-0cc000000004');
 
-insert into public.fan_profiles (id, team, nickname) values
-  ('00000000-0000-4000-8000-0cc000000001', 'lg', '승리팬'),
-  ('00000000-0000-4000-8000-0cc000000002', 'doosan', '상대팬'),
-  ('00000000-0000-4000-8000-0cc000000004', 'lg', null);
+insert into public.fan_profiles (id, team, nickname, points) values
+  ('00000000-0000-4000-8000-0cc000000001', 'lg', '승리팬', 0),
+  ('00000000-0000-4000-8000-0cc000000002', 'doosan', '상대팬', 0),
+  ('00000000-0000-4000-8000-0cc000000004', 'lg', null, 0);
 
 do $$
 declare
