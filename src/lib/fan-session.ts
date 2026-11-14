@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import type { FanTaunt } from "./fan-taunts";
 
 export type Team = "lg" | "doosan";
 export type Choice = "safe" | "out";
@@ -93,4 +94,56 @@ export async function castVote(id: string, choice: Choice) {
     if (existingVote) return existingVote;
   }
   throw error;
+}
+
+export async function updateTauntActivity(active: boolean) {
+  const { error } = await supabase().rpc("fan_taunt_activity", { p_active: active });
+  if (error) throw error;
+}
+
+export async function listFanTaunts(): Promise<FanTaunt[]> {
+  const { data, error } = await supabase().rpc("list_fan_taunts");
+  if (error) throw error;
+  return data;
+}
+
+export async function readFanTaunt(id: string): Promise<FanTaunt | null> {
+  const { data, error } = await supabase().rpc("read_fan_taunt", { p_taunt_id: id });
+  if (error) throw error;
+  return data;
+}
+
+export async function getFanTaunt(id: string): Promise<FanTaunt | null> {
+  const { data, error } = await supabase().rpc("get_fan_taunt", { p_taunt_id: id });
+  if (error) throw error;
+  return data;
+}
+
+export async function sendFanTaunt(cardId: string, phraseId: string, requestId: string, replyTo?: string): Promise<{ taunt: FanTaunt; points: number }> {
+  const { data, error } = await supabase().rpc("send_fan_taunt", {
+    p_card_id: cardId,
+    p_phrase_id: phraseId,
+    p_request_id: requestId,
+    p_reply_to: replyTo ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export type FanPointPrediction = {
+  phase: "ready" | "open" | "locked" | "result";
+  round: number | null;
+  choice: Choice | null;
+  answer: Choice | null;
+  reward: number | null;
+  secondsLeft: number | null;
+  points: number;
+};
+
+export async function pointPrediction(action: "read" | "start" | "vote", round?: number, choice?: Choice): Promise<FanPointPrediction> {
+  const { data, error } = await supabase().rpc("fan_point_prediction", {
+    p_action: action, p_round: round ?? null, p_choice: choice ?? null,
+  });
+  if (error) throw error;
+  return data;
 }

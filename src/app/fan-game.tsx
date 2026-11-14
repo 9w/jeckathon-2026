@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   castVote,
+  getFanTaunt,
   isSupabaseConfigured,
   joinFan,
   loadVote,
   resetFanSession,
   restoreFan,
   saveNickname,
+  updateTauntActivity,
   type Choice,
   type FanProfile,
   type Team,
@@ -16,6 +18,9 @@ import {
 import { normalizeNickname } from "@/lib/nickname";
 import { FanSheet, randomNicknames, setupProgress, TeamDots, TeamSheet, teams } from "./fan-setup";
 import { PlateReplay, type ReplayMatchState } from "./plate-replay";
+import { FanTaunts } from "./fan-taunts";
+import { FanPointPredictionPanel } from "./fan-point-prediction";
+import { useFanTaunts } from "./use-fan-taunts";
 
 const choices = [
   { value: "safe", label: "출루한다", caption: "살아남는다" },
@@ -61,6 +66,12 @@ export function FanGame() {
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nickname, setNickname] = useState(randomNicknames[0]);
+  const [recordTauntOpen, setRecordTauntOpen] = useState(false);
+  const predictionSection = useRef<HTMLDivElement>(null);
+  const updatePoints = useCallback((points: number) => {
+    setProfile((current) => current ? { ...current, points } : current);
+  }, []);
+  const taunts = useFanTaunts(profile?.id, updatePoints);
   const screenHeading = useRef<HTMLHeadingElement>(null);
   const nicknameButton = useRef<HTMLButtonElement>(null);
   const avatarInput = useRef<HTMLInputElement>(null);
@@ -109,6 +120,14 @@ export function FanGame() {
     window.scrollTo(0, 0);
   }
 
+  function goToPrediction() {
+    goTo("room");
+    requestAnimationFrame(() => {
+      predictionSection.current?.scrollIntoView({ block: "center" });
+      predictionSection.current?.focus({ preventScroll: true });
+    });
+  }
+
   function chooseAvatar(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (file?.type.startsWith("image/")) setAvatar(URL.createObjectURL(file));
@@ -155,7 +174,7 @@ export function FanGame() {
     setError(null);
     try {
       const saved = await saveNickname(profile.id, normalized);
-      setProfile({ ...profile, nickname: saved });
+      setProfile((current) => current ? { ...current, nickname: saved } : current);
       closeNickname();
     } catch {
       setError({ field: "nickname", message: "닉네임을 저장하지 못했습니다. 다시 시도해 주세요." });
@@ -182,7 +201,10 @@ export function FanGame() {
     setPending("reset");
     setError(null);
     try {
+      await updateTauntActivity(false).catch(() => {});
       await resetFanSession();
+      taunts.reset();
+      setRecordTauntOpen(false);
       setProfile(null);
       setVote(null);
       setNickname(randomNicknames[0]);
@@ -291,7 +313,7 @@ export function FanGame() {
       )}
       {screen === "setup" && teamSheet && <TeamSheet selected={draftTeam} onSelect={setDraftTeam} onClose={() => setTeamSheet(false)} />}
 
-      {profile && screen === "home" && (
+      {profile && screen === "home" && infoSheet !== "taunt" && (
         <section className="fan-lobby">
           <Burst className="fan-lobby-burst" />
           <header className="fan-lobby-header">
@@ -323,7 +345,7 @@ export function FanGame() {
       )}
 
       {profile && (screen === "room" || match !== null) && (
-        <section className="fan-room" hidden={screen !== "room"} aria-label="경기방">
+        <section className="fan-room" hidden={screen !== "room" || infoSheet === "taunt"} aria-label="경기방">
           <header className="fan-room-header">
             <button type="button" className="fan-back" aria-label="홈으로 돌아가기" onClick={() => goTo("home")}>‹</button>
             <span>{matchScore ? `${match?.inning} · ${match?.outs}아웃 · LG ${matchScore} 두산` : "LG vs 두산 · 리플레이"}</span>
@@ -353,6 +375,9 @@ export function FanGame() {
             <p role="status" className="fan-status">{vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}</p>
             {error?.field === "vote" && <p role="alert" className="fan-error">{error.message}</p>}
           </section>
+          <div ref={predictionSection} tabIndex={-1}>
+            <FanPointPredictionPanel active={screen === "room" && infoSheet !== "taunt"} onPoints={updatePoints} onTaunt={() => setInfoSheet("taunt")} />
+          </div>
           <PlateReplay onMatchChange={setMatch} />
           <nav className="fan-room-tabs" aria-label="경기 메뉴">
             <button type="button" aria-current="page" onClick={() => window.scrollTo(0, 0)}><span aria-hidden="true">⚾</span>경기방</button>
@@ -394,6 +419,17 @@ export function FanGame() {
             )}
           </div>
           {error?.field === "reset" && <p role="alert" className="fan-error">{error.message}</p>}
+          {taunts.inbox.length > 0 && (
+            <section className="fan-record-card fan-replay-board" aria-label="받은 도발">
+              <h2 className="font-bold">받은 도발</h2>
+              {taunts.inbox.map((message) => (
+                <button key={message.id} type="button" className="fan-quiet-button underline" onClick={() => {
+                  setRecordTauntOpen(true);
+                  taunts.open(message);
+                }}>{message.senderNickname ?? "상대 팬"}님의 도발 보기</button>
+              ))}
+            </section>
+          )}
           <button type="button" className="fan-stage-button" onClick={() => goTo("room")}>경기방으로 돌아가기</button>
         </section>
       )}
@@ -402,17 +438,22 @@ export function FanGame() {
         <FanSheet title="30초 설명" onClose={() => setInfoSheet(null)}>
           <ol className="fan-howto">
             <li><strong>타석마다 한 번, 출루 vs 아웃</strong><p>타자가 살아서 나가면 출루, 잡히면 아웃이에요.</p></li>
-            <li><strong>맞히면 +100P</strong><p>볼넷·안타·홈런은 모두 출루예요. 현재는 데모 투표로 참여할 수 있어요.</p></li>
-            <li><strong>포인트로 도발 카드</strong><p>상대 진영 팬에게 도발 카드를 보내는 기능은 준비 중이에요.</p></li>
+            <li><strong>맞히면 +100P</strong><p>경기방의 포인트 예측에서 연습 타석의 결과를 맞혀요.</p></li>
+            <li><strong>포인트로 도발 카드</strong><p>100P로 상대 진영 팬에게 카드를 보내고, 받은 카드에는 반격할 수 있어요.</p></li>
           </ol>
           <button type="button" className="fan-stage-button" onClick={() => goTo("room")}>바로 해보기</button>
         </FanSheet>
       )}
-      {infoSheet === "taunt" && (
-        <FanSheet title="상대팀에게 한 방!" onClose={() => setInfoSheet(null)}>
-          <p className="fan-sheet-message">도발 카드 전송은 준비 중이에요.</p>
-          <button type="button" className="fan-stage-button" onClick={() => setInfoSheet(null)}>닫기</button>
-        </FanSheet>
+      {profile && (
+        <FanTaunts points={profile.points} opposingTeam={teams[profile.team === "lg" ? "doosan" : "lg"].short}
+          active={infoSheet === "taunt"} incoming={infoSheet === null ? taunts.incoming : null}
+          showIncomingBanner={screen === "room" && !recordTauntOpen}
+          onDismissIncoming={() => { setRecordTauntOpen(false); taunts.dismiss(); }}
+          onRead={taunts.read} onSend={taunts.send} onReceipt={getFanTaunt}
+          onClose={() => { setInfoSheet(null); if (infoSheet !== "taunt") goTo("room"); }}
+          onPrediction={goToPrediction}
+          renderBurst={(className) => <Burst className={className} />}
+        />
       )}
       {infoSheet === "share" && (
         <FanSheet title={`${profile?.nickname}님의 도전장!`} onClose={() => setInfoSheet(null)}>
