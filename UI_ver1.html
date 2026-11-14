@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0e0f">
+<title>야구 팬덤 대결</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@125,900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0e0f;--surface:#1c1c1e;--surface2:#2c2c2e;--text:#f5f5f7;--body:#c7c7cc;--sub:#98989d;--muted:#7c7c80;--faint:#48484a;--line:#2c2c2e;
+  --p:#c30452;--pBg:#410b22;--pText:#d54f86;--o:#4e4cc8;--oBg:#201f43;--oText:#8382d8;--ok:#34c759;--err:#ff6961;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{background:#060607;color:var(--text);font-family:"Noto Sans KR",-apple-system,"Apple SD Gothic Neo",sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:disabled{cursor:default}
+input{font:inherit;color:inherit}
+.num{font-family:"Archivo","SF Pro Display",-apple-system,sans-serif;font-weight:900;font-stretch:125%;letter-spacing:-.01em}
+.sf{font-family:-apple-system,"SF Pro Text","Noto Sans KR",sans-serif}
+
+/* stage */
+.stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;gap:48px}
+.holder{position:relative;flex:none}
+.phone{position:absolute;left:0;top:0;width:390px;height:844px;background:var(--bg);border-radius:48px;overflow:hidden;transform-origin:top left;box-shadow:0 0 0 10px #18181a,0 0 0 11px #2e2e30,0 40px 100px rgba(0,0,0,.7)}
+body.mobile .phone{border-radius:0;box-shadow:none}
+body.mobile .stage{gap:0}
+body.mobile .side{display:none}
+.side{width:300px;color:var(--body);font-size:13px;line-height:1.7}
+.side h1{font-size:22px;font-weight:900;color:var(--text);letter-spacing:-.02em}
+.side p{color:var(--sub);margin-top:6px}
+.side .grp{margin-top:22px}
+.side .gt{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin-bottom:8px}
+.side .demo{display:flex;flex-wrap:wrap;gap:8px}
+.side .demo button{font-size:12.5px;font-weight:700;color:var(--text);background:var(--surface);border:1px solid #333;border-radius:999px;padding:8px 12px}
+.side .demo button:hover{border-color:var(--p)}
+.side ul{list-style:none;color:var(--sub)}
+.side li::before{content:"· "}
+
+/* absolute layer helpers */
+#phone > *{position:absolute}
+#phone > .modal *{position:absolute}
+#phone > .modal .st{position:static}
+.scr,.ov{position:absolute;inset:0}
+#phone.still > .scr.in, #phone.still .scr .pop, #phone.still .scr .in{animation:none}
+#phone.stillov > :not(.scr), #phone.stillov > :not(.scr) .pop{animation:none}
+.scr *, .ov *{position:absolute}
+.scr .st, .ov .st{position:static}
+.in{animation:in .32s cubic-bezier(.2,.8,.2,1)}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.pop{animation:pop .5s cubic-bezier(.2,1.4,.4,1)}
+@keyframes pop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+.fadein{animation:fadein .25s ease}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.sheet-in{animation:sheet .38s cubic-bezier(.2,.9,.25,1)}
+@keyframes sheet{from{transform:translateY(100%)}to{transform:none}}
+.spin{animation:spin 40s linear infinite;transform-origin:50% 50%}
+@keyframes spin{to{transform:rotate(360deg)}}
+.wob{animation:wob 2.4s ease-in-out infinite}
+@keyframes wob{0%,100%{transform:translateY(0) rotate(-6deg)}50%{transform:translateY(-12px) rotate(6deg)}}
+.pulse{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+.shake{animation:shake .4s}
+@keyframes shake{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+.glass{background:rgba(28,28,30,.62);border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+.btn{display:flex;align-items:center;justify-content:center;font-weight:700;transition:transform .1s,opacity .2s}
+.btn:active:not(:disabled){transform:scale(.97)}
+.btn:disabled{opacity:.4}
+.btn.p{background:var(--p);color:#fff}
+.btn.w{background:var(--text);color:#111}
+.btn.g{background:var(--surface2);color:var(--text)}
+.link{color:var(--sub);font-weight:500;font-size:14px;text-align:center}
+.av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--text);overflow:hidden}
+.ctr{left:0;right:0;text-align:center}
+.t-title{font-weight:900;letter-spacing:-.04em}
+
+/* status bar */
+.sb-t{left:40px;top:14px;font-size:17px;font-weight:600}
+.sb-i{left:132px;top:11px;width:126px;height:37px;border-radius:19px;background:#000;z-index:50}
+.home-ind{left:128px;top:830px;width:134px;height:5px;border-radius:3px;background:var(--text);z-index:50}
+
+/* setup */
+.inp{left:112px;top:190px;width:254px;height:52px;border-radius:14px;background:var(--surface);border:1.5px solid var(--p)}
+.inp input{position:absolute;left:16px;top:0;width:180px;height:100%;background:transparent;border:0;outline:none;font-size:17px;font-weight:700}
+.row-team{border-radius:16px}
+.sel-row{background:color-mix(in srgb,var(--p) 14%,transparent);outline:1.5px solid var(--p)}
+
+/* scroll areas */
+.scroll{overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.scroll::-webkit-scrollbar{display:none}
+.hscroll{overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none}
+.hscroll::-webkit-scrollbar{display:none}
+.hscroll > *, .hscroll > .chip{position:relative;display:inline-flex;vertical-align:top}
+
+.chip{height:38px;border-radius:19px;padding:0 14px;display:flex;align-items:center;font-size:14px;font-weight:700;background:var(--surface);border:1.5px solid var(--line);color:var(--body);white-space:nowrap}
+.chip.on{background:var(--text);border-color:var(--text);color:var(--p)}
+.ecard{width:114px;height:102px;border-radius:22px;background:var(--surface);border:1.5px solid var(--line);transition:transform .1s}
+.ecard:active{transform:scale(.96)}
+.ecard.on{border:3px solid var(--p)}
+.ecard .e{left:0;right:0;top:8px;text-align:center;font-size:34px;line-height:44px}
+.ecard .n{left:0;right:0;top:56px;text-align:center;font-size:13px;font-weight:700}
+.ecard .c{left:0;right:0;top:76px;text-align:center;font-size:12px;color:var(--sub);font-weight:600}
+
+.vote{width:166px;height:72px;border-radius:20px;background:var(--surface);border:1.5px solid var(--line);transition:opacity .25s,background .25s,transform .1s}
+.vote:active:not(:disabled){transform:scale(.97)}
+.vote .l{left:0;right:0;top:11px;text-align:center;font-size:18px;font-weight:700}
+.vote .s{left:0;right:0;top:41px;text-align:center;font-size:13px;color:var(--sub);font-weight:600}
+.vote.sel{background:var(--text);border-color:var(--text)}
+.vote.sel .l{color:var(--p)}
+.vote.sel .s{color:#111}
+.vote.dim{opacity:.3}
+
+.tab{width:90px;height:68px}
+.tab .i{left:34px;top:10px;width:22px;height:22px;border-radius:50%;background:var(--faint);display:flex;align-items:center;justify-content:center;font-size:12px}
+.tab .lb{left:0;right:0;top:38px;text-align:center;font-size:11px;font-weight:500;color:var(--sub)}
+.tab.on .i{background:var(--p)}
+.tab.on .lb{color:var(--text)}
+
+.toast{left:24px;right:24px;top:676px;z-index:80;border-radius:18px;padding:12px 16px;font-size:14px;font-weight:700;display:flex;gap:10px;align-items:center}
+.toast *{position:static}
+.banner{left:16px;right:16px;top:56px;z-index:70;border-radius:20px;padding:10px 14px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.banner *{position:static}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="holder" id="holder"><div class="phone" id="phone"></div></div>
+  <aside class="side">
+    <h1>야구 팬덤 대결</h1>
+    <p>경기는 선수들이, 신경전은 팬들이!</p>
+    <div class="grp">
+      <div class="gt">발표용 데모 조작</div>
+      <div class="demo">
+        <button data-demo="skip">다음 타석으로</button>
+        <button data-demo="taunt">상대 도발 받기</button>
+        <button data-demo="charge">+300P 충전</button>
+        <button data-demo="end">경기 종료로</button>
+        <button data-demo="reset">처음부터</button>
+      </div>
+    </div>
+    <div class="grp">
+      <div class="gt">흐름</div>
+      <ul>
+        <li>시작 → 응원팀·닉네임 설정 → 홈</li>
+        <li>경기방: 타석마다 출루/아웃 예측, 12초 후 마감</li>
+        <li>적중 +100P → 도발 카드 100P로 상대 팬에게 전송</li>
+        <li>상대 도발 수신 → 반격 안내 → 다시 도발</li>
+        <li>하단 탭: 도발하기 · 경기 공유 · 내 기록</li>
+        <li>5타석 후 경기 종료 결과</li>
+      </ul>
+    </div>
+    <div class="grp">
+      <div class="gt">참고</div>
+      <ul><li>서버 없이 브라우저 안에서만 동작, 상대 팬·결과는 시뮬레이션</li></ul>
+    </div>
+  </aside>
+</div>
+
+<input type="file" id="file" accept="image/*" hidden>
+
+<script>
+(() => {
+/* ================= data ================= */
+const BURST = "M 0 0.00 C 0 0.00 93.77 59.14 119.52 49.01 C 145.27 38.88 170.68 0.00 170.68 0.00 C 170.68 0.00 177.12 57.10 200.44 60.39 C 223.75 63.68 246.83 21.88 246.83 21.88 C 246.83 21.88 254.00 32.25 260.83 35.88 C 267.66 39.51 310 -0.00 310 -0.00 C 310 -0.00 252.08 87.52 260.83 118.16 C 269.58 148.79 309.99 153.93 309.99 153.93 C 309.99 153.93 249.56 154.30 246.83 175.93 C 244.10 197.56 283.59 217.94 283.59 217.94 C 283.59 217.94 272.25 233.40 269.58 245.00 C 266.92 256.59 309.99 316.69 309.99 316.69 C 309.99 316.69 222.32 245.00 186.43 255.58 C 150.54 266.16 140.92 308.10 140.92 308.10 C 140.92 308.10 144.29 252.96 119.52 245.00 C 94.75 237.03 65.59 288.84 65.59 288.84 C 65.59 288.84 59.55 276.12 52.51 271.26 C 45.47 266.39 0 308.10 0 308.10 C 0 308.10 65.60 201.32 52.51 183.81 C 39.43 166.29 5.17 153.93 5.17 153.93 C 5.17 153.93 67.39 141.19 65.59 122.46 C 63.78 103.72 30.63 89.27 30.63 89.27 C 30.63 89.27 40.59 77.98 43.76 69.14 C 46.93 60.31 0 0.00 0 0.00 Z";
+const TEAMS = [
+  {k:"lg",   n:"LG 트윈스",   s:"LG",  c:["#c30452","#6b6b6b"], today:true},
+  {k:"doosan",n:"두산 베어스", s:"두산", c:["#4e4cc8","#ed1c24"], today:true},
+  {k:"kia",  n:"KIA 타이거즈", s:"KIA", c:["#ea0029","#06141f"]},
+  {k:"kt",   n:"KT 위즈",     s:"KT",  c:["#eb1c24","#000000"]},
+  {k:"nc",   n:"NC 다이노스",  s:"NC",  c:["#4a72b8","#c7a079"]},
+  {k:"ss",   n:"삼성 라이온즈", s:"삼성", c:["#1a5fc2","#c0c0c0"]},
+  {k:"lotte",n:"롯데 자이언츠", s:"롯데", c:["#2f5596","#d00f31"]},
+  {k:"ssg",  n:"SSG 랜더스",   s:"SSG", c:["#ce0e2d","#ffb81c"]},
+  {k:"kw",   n:"키움 히어로즈", s:"키움", c:["#b0203f","#7f7f7f"]},
+  {k:"hh",   n:"한화 이글스",  s:"한화", c:["#fc4e00","#07111f"]},
+];
+const T = k => TEAMS.find(t => t.k === k);
+const mix = (a, b, t) => { const p=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)); const A=p(a),B=p(b); return "#"+A.map((v,i)=>Math.round(v+(B[i]-v)*t).toString(16).padStart(2,"0")).join(""); };
+const RANDOM_NICKS = ["잠실직관러","외야석장인","치맥요정","9회말역전러","응원단장","직관요정","홈런기원","불펜지킴이","1루석터줏대감","파울볼수집가"];
+const FANS = { lg:[{n:"쌍둥이직관러"},{n:"잠실트윈"}], doosan:[{n:"곰돌이직관러"},{n:"두산곰탱"}] };
+const BATTERS = [
+  {name:"김거포", no:4,  team:"두산", order:"4번 타자", avg:".312", today:"오늘 2타수 1안타", inn:"5회말", outs:1, safe:true,  result:"볼넷", tip:"볼넷: 공을 치지 않아도 1루에 갈 수 있어요"},
+  {name:"박타격", no:25, team:"두산", order:"5번 타자", avg:".287", today:"오늘 2타수 무안타", inn:"5회말", outs:1, safe:false, result:"삼진 아웃", tip:"삼진: 스트라이크 3개면 아웃이에요"},
+  {name:"이빠름", no:7,  team:"두산", order:"6번 타자", avg:".298", today:"오늘 1타수 1안타", inn:"5회말", outs:2, safe:true,  result:"적시 2루타", tip:"2루타: 공을 치고 2루까지 달려간 거예요", runs:{doosan:1}},
+  {name:"최장타", no:52, team:"LG",  order:"3번 타자", avg:".331", today:"오늘 2타수 2안타", inn:"6회초", outs:0, safe:false, result:"뜬공 아웃", tip:"뜬공 아웃: 친 공이 땅에 닿기 전에 잡히면 아웃이에요"},
+  {name:"정해결", no:10, team:"LG",  order:"4번 타자", avg:".305", today:"오늘 3타수 1안타", inn:"6회초", outs:1, safe:true,  result:"투런 홈런", tip:"홈런: 담장을 넘기면 타자와 주자 모두 득점해요", runs:{lg:2}},
+];
+const CARDS = [
+  {e:"🤡", n:"처음 봐요?",   q:"오늘 야구 처음 봐요?"},
+  {e:"🐢", n:"거북이 주루",  q:"주루가 거북이네~"},
+  {e:"🥱", n:"졸린 경기력",  q:"벌써 졸린 경기력"},
+  {e:"📉", n:"타율 하락 중", q:"타율 실시간 하락 중"},
+  {e:"🧂", n:"소금 한 사발", q:"짠내 나는 경기력이네"},
+  {e:"🎻", n:"슬픈 바이올린", q:"BGM 깔아드릴게요"},
+];
+const PHRASES = ["야구 처음 봐요?","주루가 거북이네~","벌써 졸린 경기력","다음엔 맞히겠지^^","그걸 왜 거기 걸어"];
+const COST = 100, REWARD = 100, VOTE_SEC = 12;
+
+/* ================= state ================= */
+let S;
+function fresh(){
+  return {
+    screen:"start", prev:null,
+    nick:RANDOM_NICKS[0], team:"lg", avatar:null, draftTeam:"lg",
+    points:300,
+    score:{lg:2, doosan:1},
+    i:0, phase:null, left:VOTE_SEC, pick:null, count:213, ratio:null, friends:null, started:false,
+    last:null, // last result
+    stats:{hits:0, tries:0, earned:0, sent:0, recv:0, hero:null},
+    card:0, phrase:null, target:0,
+    sheet:null,      // "team" | "howto" | "counter" | "confirm"
+    recv:null,       // incoming taunt object
+    banner:null,
+    toast:null,
+    sentTo:null, sentRead:false, closeIn:3,
+    preview:false, recordMode:false, sheetQuery:"",
+  };
+}
+S = fresh();
+
+const phone = document.getElementById("phone");
+const my = () => T(S.team);
+const opp = () => T(S.team === "lg" ? "doosan" : "lg");
+const fans = () => FANS[opp().k];
+const B = () => BATTERS[Math.min(S.i, BATTERS.length-1)];
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const nickOk = v => { const n=[...v.trim()].length; return n>=2 && n<=10 && !/[\u0000-\u001f\u007f]/.test(v); };
+const fmt = n => n.toLocaleString("ko-KR");
+
+function theme(teamKey){
+  const t = T(teamKey), o = T(teamKey==="lg"?"doosan":"lg");
+  const r = document.documentElement.style;
+  r.setProperty("--p", t.c[0]); r.setProperty("--pBg", mix("#0e0e0f", t.c[0], .28)); r.setProperty("--pText", mix(t.c[0], "#ffffff", .3));
+  r.setProperty("--o", o.c[0]); r.setProperty("--oBg", mix("#0e0e0f", o.c[0], .28)); r.setProperty("--oText", mix(o.c[0], "#ffffff", .3));
+}
+
+/* ================= pieces ================= */
+const burst = (x,y,w,h,fill,extra="",cls="") => `<svg class="${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;${extra}" viewBox="0 0 310 317" preserveAspectRatio="none"><path d="${BURST}" fill="${fill}"/></svg>`;
+const status = (dark=false) => `
+  <div class="sb-t sf" style="${dark?"color:#1c1c1e":""}">9:41</div>
+  <div class="sb-i"></div>
+  <svg style="left:300px;top:19px" width="22" height="15" viewBox="0 0 22 15"><rect x="0" y="9" width="4" height="6" rx="1" fill="${dark?"#1c1c1e":"#f5f5f7"}"/><rect x="6" y="6" width="4" height="9" rx="1" fill="${dark?"#1c1c1e":"#f5f5f7"}"/><rect x="12" y="3" width="4" height="12" rx="1" fill="${dark?"#1c1c1e":"#f5f5f7"}"/><rect x="18" y="0" width="4" height="15" rx="1" fill="${dark?"#1c1c1e":"#f5f5f7"}"/></svg>
+  <svg style="left:332px;top:20px" width="25" height="13" viewBox="0 0 25 13"><rect width="25" height="13" rx="4" fill="#ffffff" fill-opacity=".35"/><rect x="2" y="2" width="18" height="9" rx="2" fill="${dark?"#1c1c1e":"#f5f5f7"}"/></svg>`;
+const homeInd = () => `<div class="home-ind"></div>`;
+const pill = () => `<div class="glass" style="left:262px;top:56px;width:112px;height:36px;border-radius:18px"><div style="left:10px;top:8px;width:18px;height:18px;border-radius:50%;background:var(--p)"></div><div class="sf" id="pts" style="left:36px;top:7px;font-size:15px;font-weight:700">${fmt(S.points)}P</div></div>`;
+const avatar = (x,y,size,label,bg="var(--pBg)",fs=17,img=null) => `<div class="av" style="left:${x}px;top:${y}px;width:${size}px;height:${size}px;background:${bg};font-size:${fs}px">${img?`<img src="${img}" style="position:static;width:100%;height:100%;object-fit:cover">`:esc(label)}</div>`;
+const teamDots = (x,y,t,size=20) => `<div style="left:${x}px;top:${y}px;width:${size}px;height:${size}px;border-radius:50%;background:${t.c[0]};border:1px solid rgba(255,255,255,.25);z-index:2"></div><div style="left:${x+13}px;top:${y}px;width:${size}px;height:${size}px;border-radius:50%;background:${t.c[1]};border:1px solid rgba(255,255,255,.25)"></div>`;
+const scoreText = () => `LG ${S.score.lg} : ${S.score.doosan} 두산`;
+
+/* ================= screens ================= */
+function scrStart(){
+  return `<div class="scr in">
+    ${burst(-80,90,550,562,"var(--p)","","")}
+    ${status()}
+    <div class="ctr t-title" style="top:236px;font-size:52px;line-height:72px">야구 팬덤 대결</div>
+    <div class="ctr" style="top:322px;font-size:26px;font-weight:700;line-height:36px;letter-spacing:-.02em">경기는 선수들이,<br>신경전은 팬들이!</div>
+    <div class="ctr" style="top:418px;font-size:13px;font-weight:500"><span class="st" style="background:rgba(0,0,0,.35);padding:6px 12px;border-radius:999px">🔴 LIVE · LG vs 두산 · 잠실</span></div>
+    <button class="btn p" data-act="toSetup" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">입장하기</button>
+    <div class="link ctr" style="top:806px">야구 몰라도 30초면 시작해요</div>
+    ${homeInd()}
+  </div>`;
+}
+
+function scrSetup(){
+  const t = T(S.draftTeam);
+  const ok = nickOk(S.nick);
+  return `<div class="scr in">
+    ${status()}
+    <button data-act="toStart" class="sf" style="left:14px;top:46px;width:34px;height:34px;font-size:30px;font-weight:700;line-height:30px;display:none">‹</button>
+    <div style="left:24px;top:58px;width:342px;height:4px;border-radius:2px;background:var(--surface2)"></div>
+    <div style="left:24px;top:58px;width:${ok?342:228}px;height:4px;border-radius:2px;background:var(--p);transition:width .4s" id="prog"></div>
+    <div style="left:24px;top:82px;font-size:26px;font-weight:700;line-height:36px;letter-spacing:-.02em">오늘은 어느 편에<br>서시겠어요?</div>
+    <button data-act="pickPhoto" style="left:24px;top:170px;width:74px;height:74px">
+      <div class="av" style="left:0;top:0;width:72px;height:72px;background:var(--surface2);border:1px solid rgba(255,255,255,.12);font-size:28px;color:var(--muted)">${S.avatar?`<img src="${S.avatar}" style="position:static;width:100%;height:100%;object-fit:cover">`:"?"}</div>
+      <div class="av" style="left:50px;top:50px;width:24px;height:24px;background:var(--p);font-size:16px">+</div>
+    </button>
+    <div style="left:112px;top:168px;font-size:13px;color:var(--sub);font-weight:500">닉네임</div>
+    <div class="inp" id="inpbox" style="${ok?"":"border-color:var(--err)"}">
+      <input id="nick" maxlength="10" value="${esc(S.nick)}" placeholder="2~10자" autocomplete="off">
+      <div id="cnt" style="right:14px;top:17px;font-size:12px;color:var(--muted)">${[...S.nick].length}/10</div>
+    </div>
+    <div id="nmsg" style="left:112px;top:250px;font-size:12px;font-weight:500;color:${ok?"var(--ok)":"var(--err)"}">${ok?"✓ 사용 가능한 닉네임이에요":"닉네임은 2~10자로 입력해 주세요"}</div>
+    <button data-act="randNick" style="right:24px;top:246px;font-size:12px;font-weight:700;color:var(--pText);height:24px">🎲 랜덤 닉네임</button>
+    <div style="left:24px;top:292px;font-size:17px;font-weight:700">응원 진영</div>
+    <div style="left:24px;top:318px;font-size:12px;color:var(--sub)">오늘 경기는 LG vs 두산이에요</div>
+    <button data-act="openTeam" style="left:24px;top:346px;width:342px;height:60px;border-radius:14px;background:var(--surface);border:1px solid rgba(255,255,255,.1)">
+      ${teamDots(16,20,t)}
+      <div style="left:60px;top:18px;font-size:16px;font-weight:700">${t.n}</div>
+      <div style="right:16px;top:20px;font-size:13px;color:var(--sub);font-weight:500">변경 ⌄</div>
+    </button>
+    <div style="left:24px;top:414px;font-size:12px;color:var(--muted)">경기 중에는 진영을 바꿀 수 없어요</div>
+    <button class="btn p" id="enter" data-act="enter" style="left:16px;top:744px;width:358px;height:58px;border-radius:29px;font-size:17px" ${ok?"":"disabled"}>${t.s} 진영으로 참전하기</button>
+    ${homeInd()}
+  </div>`;
+}
+
+function sheetTeam(){
+  const q = S.sheetQuery.trim();
+  const list = TEAMS.filter(t => !q || t.n.includes(q) || t.s.toLowerCase().includes(q.toLowerCase()));
+  const rows = list.map((t,i) => {
+    const sel = S.draftTeam === t.k;
+    return `<button ${t.today?`data-act="selTeam" data-k="${t.k}"`:"disabled"} class="row-team ${sel?"sel-row":""}" style="position:relative;display:block;left:0;width:358px;height:56px;margin-bottom:6px;opacity:${t.today?1:.35}">
+      ${teamDots(14,18,t)}
+      <div style="left:60px;top:15px;font-size:16px;font-weight:700">${t.n}</div>
+      ${t.today?"":`<div style="left:${60+t.n.length*16+8}px;top:19px;font-size:11px;color:var(--muted)">오늘 경기 없음</div>`}
+      <div style="right:16px;top:17px;width:22px;height:22px;border-radius:50%;${sel?"background:var(--p)":"border:1.5px solid var(--faint)"};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${sel?"✓":""}</div>
+    </button>`;
+  }).join("") || `<div class="st" style="padding:40px 0;text-align:center;color:var(--sub)">검색 결과가 없어요</div>`;
+  return `<div class="ov fadein" data-act="closeSheet" style="background:rgba(0,0,0,.6);z-index:20"></div>
+  <div class="ov sheet-in" style="top:236px;z-index:21;background:rgba(28,28,31,.97);border-radius:28px 28px 0 0;border-top:1px solid rgba(255,255,255,.12)">
+    <div style="left:175px;top:10px;width:40px;height:5px;border-radius:3px;background:var(--faint)"></div>
+    <div style="left:24px;top:28px;font-size:18px;font-weight:700">오늘 경기 진영 선택</div>
+    <div style="right:24px;top:32px;font-size:13px;color:var(--sub)">LG vs 두산</div>
+    <div style="left:16px;top:70px;width:358px;height:44px;border-radius:12px;background:var(--surface2)">
+      <div style="left:14px;top:11px;color:var(--muted);font-size:14px">⌕</div>
+      <input id="tq" value="${esc(S.sheetQuery)}" placeholder="팀 이름 검색" style="left:36px;top:0;width:300px;height:44px;background:none;border:0;outline:none;font-size:14px">
+    </div>
+    <div class="scroll" id="tlist" style="left:16px;top:128px;width:358px;height:362px">${rows}</div>
+    <button class="btn p" data-act="closeSheet" style="left:16px;top:508px;width:358px;height:58px;border-radius:29px;font-size:17px">선택 완료</button>
+  </div>`;
+}
+
+function scrHome(){
+  const t = my();
+  return `<div class="scr in">
+    <div style="left:120px;top:-120px;width:420px;height:420px;border-radius:50%;background:var(--pBg)"></div>
+    ${burst(170,-150,360,368,"var(--p)")}
+    ${status()}
+    <div class="t-title" style="left:24px;top:62px;font-size:22px;letter-spacing:-.02em">야구 팬덤 대결</div>
+    <button data-act="toRecord" style="right:16px;top:56px;height:36px;border-radius:18px;padding:0 12px 0 4px;display:flex;align-items:center;gap:8px" class="glass">
+      <span class="st av" style="width:28px;height:28px;background:var(--p);font-size:13px;display:inline-flex">${S.avatar?`<img src="${S.avatar}" style="width:100%;height:100%;object-fit:cover">`:esc([...S.nick][0]||"?")}</span>
+      <span class="st" style="font-size:13px;font-weight:700">${esc(S.nick)}</span>
+    </button>
+    <div style="left:24px;top:118px;font-size:26px;font-weight:700;line-height:36px;letter-spacing:-.02em">경기는 선수들이,<br>신경전은 팬들이!</div>
+    <div style="left:24px;top:194px;font-size:13px;color:var(--sub)">야구 몰라도 괜찮아요. 일단 친구부터 이겨보세요.</div>
+    <div class="glass" style="left:16px;top:228px;width:358px;height:224px;border-radius:28px">
+      <div style="left:20px;top:20px;height:28px;padding:0 12px;border-radius:14px;background:var(--p);font-size:13px;font-weight:700;display:flex;align-items:center" class="pulse">LIVE · ${B().inn}</div>
+      <div style="left:20px;top:68px;font-size:16px;font-weight:700;color:var(--body)">LG</div>
+      <div class="num" style="left:0;right:0;top:54px;text-align:center;font-size:40px">${S.score.lg} : ${S.score.doosan}</div>
+      <div style="right:20px;top:68px;font-size:16px;font-weight:700;color:var(--body)">두산</div>
+      <div style="left:20px;top:122px;width:318px;height:1px;background:var(--line)"></div>
+      <div style="left:20px;top:138px;font-size:13px;color:var(--sub);font-weight:500">지금 참전 중</div>
+      <div style="left:20px;top:158px;font-size:18px;font-weight:700">🔥 ${fmt(S.count+11)}명</div>
+      <button class="btn w" data-act="toRoom" style="left:194px;top:142px;width:144px;height:48px;border-radius:24px;font-size:17px">참전하기 →</button>
+    </div>
+    <div style="left:24px;top:480px;font-size:18px;font-weight:700">어떻게 하는 게임인가요?</div>
+    <button data-act="howto" style="right:24px;top:482px;font-size:13px;color:var(--sub);font-weight:500;text-decoration:underline;text-underline-offset:3px">30초 설명</button>
+    ${[["1","다음 타자, 살아남을까?","출루 또는 아웃 예측",`<span class="st">⚾</span>`,"toRoom","var(--p)"],
+       ["2","맞혔다면 100P!","예측 성공 시 포인트",`<span class="st num" style="font-size:15px">+100P</span>`,"previewWin","var(--pBg)"],
+       ["3","상대팀 팬에게 한 방!","포인트로 도발 카드 전송",`<span class="st">😈</span>`,"toCard","var(--pBg)"]].map((r,i)=>`
+      <button data-act="${r[4]}" style="left:16px;top:${516+i*76}px;width:358px;height:66px;border-radius:20px;background:var(--surface)">
+        <div class="av" style="left:14px;top:13px;width:40px;height:40px;background:${r[5]};font-size:17px">${r[0]}</div>
+        <div style="left:68px;top:11px;font-size:16px;font-weight:700">${r[1]}</div>
+        <div style="left:68px;top:36px;font-size:13px;color:var(--sub)">${r[2]}</div>
+        <div style="right:18px;top:22px;font-size:15px;color:var(--pText);font-weight:700">${r[3]}</div>
+      </button>`).join("")}
+    <button class="btn w" data-act="toRoom" style="left:16px;top:744px;width:358px;height:56px;border-radius:28px;font-size:17px">지금 참전하기</button>
+    ${homeInd()}
+  </div>`;
+}
+
+function sheetHowto(){
+  return `<div class="ov fadein" data-act="closeSheet" style="background:rgba(0,0,0,.6);z-index:20"></div>
+  <div class="ov sheet-in" style="top:300px;z-index:21;background:rgba(28,28,31,.97);border-radius:28px 28px 0 0;border-top:1px solid rgba(255,255,255,.12)">
+    <div style="left:175px;top:10px;width:40px;height:5px;border-radius:3px;background:var(--faint)"></div>
+    <div style="left:24px;top:32px;font-size:22px;font-weight:700">30초 설명 ⏱</div>
+    ${[["⚾","타석마다 한 번, 출루 vs 아웃","타자가 살아서 나가면 출루, 잡히면 아웃. 12초 안에 고르면 바로 확정"],
+       ["💰","맞히면 +100P","볼넷·안타·홈런 모두 출루. 결과 화면에 용어 한 줄 설명"],
+       ["😈","포인트로 도발 카드","100P로 상대 진영 팬에게 이모지 카드 전송. 받으면 반격 가능"]].map((r,i)=>`
+      <div style="left:24px;top:${84+i*96}px;width:342px;height:84px;border-radius:18px;background:var(--surface2)">
+        <div style="left:16px;top:20px;font-size:30px">${r[0]}</div>
+        <div style="left:64px;top:16px;font-size:16px;font-weight:700">${r[1]}</div>
+        <div style="left:64px;top:40px;width:262px;font-size:12.5px;color:var(--sub);line-height:1.45">${r[2]}</div>
+      </div>`).join("")}
+    <button class="btn p" data-act="toRoom" style="left:16px;top:388px;width:358px;height:56px;border-radius:28px;font-size:17px">바로 해보기</button>
+    <button class="link" data-act="closeSheet" style="left:0;right:0;top:456px;height:30px">닫기</button>
+  </div>`;
+}
+
+function scrRoom(){
+  const b = B();
+  const ph = S.phase;
+  const locked = ph==="locked" || ph==="missed" || ph==="waiting";
+  const head = {
+    open:   ["이번 타자, 살아남을까요?", "맞히면 +100P · 한 번 고르면 바꿀 수 없어요"],
+    picked: ["예측 완료! 결과를 기다려 보세요", "서버 접수 확인 · 선택 변경 불가"],
+    locked: ["예측 마감! 결과를 기다리는 중…", `내 예측: ${S.pick==="safe"?"출루":"아웃"} · 곧 결과 공개`],
+    missed: ["이번 타석의 예측이 마감됐습니다", "다음 타석에서 참여할 수 있어요"],
+    waiting:["다음 타자를 기다리는 중", "곧 새 타석이 열려요"],
+  }[ph] || ["",""];
+  const vBtn = (k,x,emo,l,s) => {
+    const sel = S.pick===k;
+    const dis = ph!=="open";
+    const dim = (S.pick && !sel) || ph==="missed" || ph==="waiting";
+    const sub = sel ? (ph==="picked" ? "✓ 예측 완료" : "내 예측") : s;
+    return `<button class="vote ${sel?"sel":""} ${dim?"dim":""}" data-act="vote" data-k="${k}" style="left:${x}px;top:430px" ${dis?"disabled":""}><div class="l">${emo} ${l}</div><div class="s">${sub}</div></button>`;
+  };
+  const cd = ph==="open"||ph==="picked" ? `마감 0:${String(S.left).padStart(2,"0")}` : ph==="locked" ? "🔒 예측 마감" : ph==="missed" ? "마감됨" : "대기 중";
+  const fr = ["준","서","도"].map((n,i)=>`
+    <div class="av" style="left:${86+i*88}px;top:0;width:28px;height:28px;background:var(--pBg);font-size:12px">${n}</div>
+    <div style="left:${120+i*88}px;top:4px;font-size:13px;font-weight:700;color:var(--body)">${S.friends?S.friends[i]:"?"}</div>`).join("");
+  const r = S.ratio;
+  return `<div class="scr in">
+    ${status()}
+    <button data-act="toHome" class="sf" style="left:12px;top:48px;width:36px;height:40px;font-size:30px;font-weight:700;text-align:left;padding-left:8px">‹</button>
+    <div style="left:52px;top:62px;font-size:16px;font-weight:700">${b.inn} · ${b.outs}아웃 · ${scoreText()}</div>
+    ${pill()}
+    <div style="left:16px;top:106px;width:358px;height:236px;border-radius:32px;background:var(--p);overflow:hidden" class="${S.started?"":""}">
+      ${burst(164,-46,300,306,"#1c1c1e","opacity:.35")}
+      <div class="av" style="left:24px;top:28px;width:84px;height:84px;background:#1c1c1e;border:3px solid #ff383c;font-size:30px;font-weight:900">${b.name[0]}</div>
+      <div style="left:124px;top:30px;font-size:30px;font-weight:900;letter-spacing:-.02em;white-space:nowrap">${b.name} <span class="st num" style="font-size:24px;margin-left:4px">#${b.no}</span></div>
+      <div style="left:124px;top:78px;font-size:14px;font-weight:500">${b.team} · ${b.order}</div>
+      <div style="left:24px;top:136px;font-size:13px;font-weight:500;white-space:pre">타율 ${b.avg}   ${b.today}</div>
+      <div class="glass" style="left:24px;top:174px;width:150px;height:40px;border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700"><span class="st ${ph==="open"&&S.left<=3?"pulse":""}" style="${ph==="open"&&S.left<=3?"color:#fff":""}">${cd}</span></div>
+    </div>
+    <div style="left:24px;top:364px;font-size:22px;font-weight:700;letter-spacing:-.02em">${head[0]}</div>
+    <div style="left:24px;top:398px;font-size:13px;color:var(--sub)">${head[1]}</div>
+    ${vBtn("safe",16,"🏃","출루한다","살아남는다")}
+    ${vBtn("out",208,"🙅","아웃된다","잡힌다")}
+    <div style="left:16px;top:520px;width:358px;height:64px;border-radius:20px;background:var(--surface);overflow:hidden">
+      <div style="left:16px;top:21px;font-size:14px;color:var(--sub);font-weight:500">${r?`출루 ${r}% · 아웃 ${100-r}%`:ph==="missed"?"👀 이번 타석은 관전 모드":"실시간 참여"}</div>
+      <div class="num" style="right:18px;top:16px;font-size:22px">${fmt(S.count)}명</div>
+      ${r?`<div style="left:16px;top:54px;width:326px;height:4px;border-radius:2px;background:var(--faint)"></div><div style="left:16px;top:54px;width:${326*r/100}px;height:4px;border-radius:2px;background:var(--p);transition:width .6s"></div>`:""}
+    </div>
+    <div style="left:24px;top:600px;width:340px;height:28px">
+      <div style="left:0;top:5px;font-size:13px;color:var(--sub);font-weight:500">친구 예측</div>${fr}
+    </div>
+    <div class="ctr" style="top:650px;font-size:11px;color:var(--muted)">${ph==="open"?"선택하면 바로 확정돼요":ph==="missed"?`결과: ${b.name} ${b.result} — 곧 다음 타석`:ph==="locked"?"친구 예측 공개 · 결과 발표 직전":""}</div>
+    ${tabbar(0)}
+    ${homeInd()}
+  </div>`;
+}
+function tabbar(active){
+  const tabs=[["경기방","⚾","toRoom"],["도발하기","😈","toCard"],["경기 공유","↗","toShare"],["내 기록","★","toRecord"]];
+  return `<div class="glass" style="left:16px;top:748px;width:358px;height:68px;border-radius:34px">
+    ${tabs.map((t,i)=>`<button class="tab ${i===active?"on":""}" data-act="${t[2]}" style="left:${i*89.5}px;top:0"><div class="i">${t[1]}</div><div class="lb">${t[0]}</div></button>`).join("")}
+  </div>`;
+}
+
+function scrResult(){
+  const L = S.last; const win = L.win; const preview = S.preview;
+  const rows = fans().map((f,i)=>`
+    <div class="av" style="left:20px;top:${58+i*60}px;width:40px;height:40px;background:var(--oBg);font-size:17px">${f.n[0]}</div>
+    <div style="left:72px;top:${60+i*60}px;font-size:15px;font-weight:700;color:var(--body)">${f.n}</div>
+    <div style="left:72px;top:${80+i*60}px;font-size:13px;color:var(--sub)">${opp().s} · ${win?`${L.safe?"아웃":"출루"} 예측 · 0P`:`${L.safe?"출루":"아웃"} 적중 · +100P`}</div>
+    <button class="btn w" data-act="tauntFan" data-i="${i}" style="left:246px;top:${60+i*60}px;width:92px;height:36px;border-radius:18px;font-size:${win?17:15}px">${win?"도발":"반격 준비"}</button>`).join("");
+  return `<div class="scr in">
+    ${burst(-80,90,550,562, win?"var(--p)":"#2c2c2e","","spin")}
+    ${status()}
+    ${preview?`<div class="ctr" style="top:120px"><span class="st" style="background:rgba(0,0,0,.45);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700">예시 화면</span></div>`:""}
+    <div class="ctr t-title pop" style="top:236px;font-size:${win?64:40}px;line-height:${win?90:60}px">${win?"예측 성공!":"아쉽게 빗나갔어요"}</div>
+    <div class="ctr num pop" style="top:336px;font-size:44px">${win?"+100P":"0P"}</div>
+    <div class="ctr" style="top:404px;font-size:15px;font-weight:700">${win?`${fmt(L.before)}P → ${fmt(L.before+REWARD)}P · ${L.batter} ${L.result} (${L.safe?"출루":"아웃"})`:`내 예측 ${L.pick==="safe"?"출루":"아웃"} · 실제 결과 ${L.result}`}</div>
+    <div class="ctr" style="top:436px;font-size:13px;font-weight:500">💡 ${esc(L.tip)}</div>
+    <div class="glass" style="left:16px;top:520px;width:358px;height:190px;border-radius:28px">
+      <div style="left:20px;top:20px;font-size:16px;font-weight:700">${win?"틀린 상대팀 팬":"맞힌 상대팀 팬 (도발 주의)"}</div>
+      ${rows}
+    </div>
+    ${preview
+      ? `<button class="btn p" data-act="toRoom" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">직접 해보기</button>
+         <button class="link" data-act="toHome" style="left:0;right:0;top:798px;height:30px">돌아가기</button>`
+      : win
+      ? `<button class="btn p" data-act="toCard" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">😈 도발하러 가기</button>
+         <button class="link" data-act="nextBat" style="left:0;right:0;top:798px;height:30px">계속 관람하기</button>`
+      : `<button class="btn p" data-act="nextBat" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">다음 타석 도전하기</button>
+         <button class="link" data-act="explain" style="left:0;right:0;top:798px;height:30px">결과 알아보기</button>`}
+    ${homeInd()}
+  </div>`;
+}
+
+function scrCard(){
+  const c = CARDS[S.card];
+  const phrase = S.phrase ?? c.q;
+  const targets = [`🎲 ${opp().s} 팬 랜덤`, ...fans().map(f=>f.n)];
+  const enough = S.points >= COST;
+  return `<div class="scr in">
+    <div style="left:-160px;top:420px;width:520px;height:520px;border-radius:50%;background:var(--pBg)"></div>
+    ${status()}
+    <button data-act="back" class="sf" style="left:12px;top:48px;width:36px;height:40px;font-size:30px;font-weight:700;text-align:left;padding-left:8px">‹</button>
+    <div style="left:52px;top:62px;font-size:18px;font-weight:700">상대팀에게 한 방!</div>
+    ${pill()}
+    <div class="hscroll" style="left:0;top:110px;width:390px;height:40px;padding:0 16px">
+      ${targets.map((t,i)=>`<button class="chip ${S.target===i?"on":""}" data-act="target" data-i="${i}" style="margin-right:8px">${esc(t)}</button>`).join("")}
+    </div>
+    ${burst(40,150,310,317,"var(--p)")}
+    <div class="glass" style="left:40px;top:176px;width:310px;height:236px;border-radius:32px">
+      <div class="ctr wob" style="top:30px;font-size:88px;line-height:100px" id="pe">${c.e}</div>
+      <div style="left:32px;top:150px;width:246px;height:52px;border-radius:26px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;padding:0 14px;text-align:center"><span class="st">${esc(phrase)}</span></div>
+    </div>
+    <div style="left:24px;top:436px;font-size:16px;font-weight:700">도발 카드 고르기 · 모두 100P</div>
+    ${CARDS.map((k,i)=>`<button class="ecard ${S.card===i?"on":""}" data-act="card" data-i="${i}" style="left:${16+(i%3)*122}px;top:${466+Math.floor(i/3)*112}px"><div class="e">${k.e}</div><div class="n">${k.n}</div><div class="c sf">${COST}P</div></button>`).join("")}
+    <div class="hscroll" style="left:0;top:694px;width:390px;height:40px;padding:0 16px">
+      ${PHRASES.map(p=>`<button class="chip ${phrase===p?"on":""}" data-act="phrase" data-p="${esc(p)}" style="margin-right:6px;font-size:14px">${esc(p)}</button>`).join("")}
+    </div>
+    <button class="btn p" data-act="${enough?"confirm":"needPoints"}" style="left:16px;top:744px;width:358px;height:58px;border-radius:29px;font-size:17px;${enough?"":"opacity:.45"}">${enough?`${c.e} 도발 보내기 · ${COST}P`:`포인트 부족 · ${COST}P 필요`}</button>
+    ${homeInd()}
+  </div>`;
+}
+
+function modalConfirm(){
+  const c = CARDS[S.card]; const phrase = S.phrase ?? c.q;
+  const who = S.target===0 ? `${opp().s} 진영의 활동 중인 팬에게 전송` : `${fans()[S.target-1].n}님에게 전송`;
+  return `<div class="ov fadein" data-act="closeSheet" style="background:rgba(0,0,0,.65);z-index:20"></div>
+  <div class="glass pop modal" style="left:24px;top:210px;width:342px;height:430px;border-radius:36px;z-index:21">
+    <div class="ctr" style="top:40px;font-size:96px;line-height:110px">${c.e}</div>
+    <div class="ctr" style="top:156px;font-size:22px;font-weight:700">이 카드를 보낼까요?</div>
+    <div class="ctr" style="top:192px;font-size:13px;color:var(--body)">${esc(who)}</div>
+    <div style="left:32px;top:226px;width:278px;height:56px;border-radius:28px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700"><span class="st">−${COST}P · 잔액 ${fmt(S.points)}P → ${fmt(S.points-COST)}P</span></div>
+    <button class="btn p" data-act="send" style="left:24px;top:306px;width:294px;height:56px;border-radius:28px;font-size:17px">보내기</button>
+    <button class="link" data-act="closeSheet" style="left:0;right:0;top:374px;height:30px;font-size:15px">취소</button>
+  </div>`;
+}
+
+function scrSent(){
+  const c = CARDS[S.card];
+  const to = S.sentTo;
+  return `<div class="scr in">
+    ${burst(-80,90,550,562,"var(--p)","","spin")}
+    ${status()}
+    <div class="ctr pop" style="top:240px;font-size:64px;line-height:80px">${c.e}</div>
+    <div class="ctr t-title pop" style="top:330px;font-size:40px;line-height:58px">전송 성공!</div>
+    <div class="ctr" style="top:404px;font-size:15px;font-weight:700">−${COST}P · 잔액 ${fmt(S.points)}P</div>
+    <div class="glass" style="left:16px;top:600px;width:358px;height:116px;border-radius:28px">
+      <div style="left:20px;top:20px;font-size:16px;font-weight:700">받은 사람</div>
+      <div class="av" style="left:20px;top:58px;width:40px;height:40px;background:var(--oBg);font-size:17px">${to[0]}</div>
+      <div style="left:72px;top:60px;font-size:15px;font-weight:700;color:var(--body)">${esc(to)}</div>
+      <div style="left:72px;top:80px;font-size:13px;color:var(--sub)">${opp().s} · 방금 받음</div>
+      <div class="btn w" style="left:246px;top:60px;width:92px;height:36px;border-radius:18px;font-size:15px">${S.sentRead?"읽음 👀":`<span class="st pulse">확인 중…</span>`}</div>
+    </div>
+    <button class="btn p" data-act="afterSent" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">계속 관람하기</button>
+    <div class="link ctr" style="top:806px">${S.closeIn}초 후 자동으로 닫혀요</div>
+    ${homeInd()}
+  </div>`;
+}
+
+function ovRecv(){
+  const r = S.recv;
+  const em = [[18,120,40],[300,157,54],[40,682,48],[283,710,36],[320,90,28],[200,780,30]];
+  return `<div class="ov fadein" style="z-index:40;background:var(--bg)">
+    ${burst(-120,-60,640,654,"var(--o)","","spin")}
+    <div style="left:0;top:0;width:390px;height:844px;background:rgba(0,0,0,.5)"></div>
+    ${status()}
+    ${em.map(([x,y,s],i)=>`<div class="wob" style="left:${x}px;top:${y}px;font-size:${s}px;animation-delay:${i*.3}s">${r.e}</div>`).join("")}
+    <div class="glass pop" style="left:24px;top:210px;width:342px;height:430px;border-radius:36px">
+      <div class="ctr" style="top:40px;font-size:96px;line-height:110px">${r.e}</div>
+      <div class="ctr" style="top:156px;font-size:22px;font-weight:700">상대팀 팬이 도발했어요!</div>
+      <div class="ctr" style="top:192px;font-size:13px;color:var(--body)">${esc(r.from)} · ${opp().s} · 방금</div>
+      <div style="left:32px;top:226px;width:278px;height:56px;border-radius:28px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700"><span class="st">“${esc(r.q)}”</span></div>
+      <button class="btn p" data-act="counter" style="left:24px;top:306px;width:294px;height:56px;border-radius:28px;font-size:17px">반격 준비하기 🔥</button>
+      <button class="link" data-act="closeRecv" style="left:0;right:0;top:374px;height:30px;font-size:15px">닫기</button>
+    </div>
+    ${homeInd()}
+  </div>`;
+}
+
+function sheetCounter(){
+  const enough = S.points >= COST;
+  return `<div class="ov fadein" data-act="closeSheet" style="background:rgba(0,0,0,.6);z-index:20"></div>
+  <div class="ov sheet-in" style="top:420px;z-index:21;background:rgba(28,28,31,.97);border-radius:28px 28px 0 0;border-top:1px solid rgba(255,255,255,.12)">
+    <div style="left:175px;top:10px;width:40px;height:5px;border-radius:3px;background:var(--faint)"></div>
+    <div style="left:24px;top:34px;font-size:24px;font-weight:700">반격할 차례입니다! 🔥</div>
+    <div style="left:24px;top:84px;width:342px;height:72px;border-radius:16px;background:var(--surface2)">
+      <div style="left:16px;top:14px;font-size:12px;color:var(--sub)">보유 포인트</div>
+      <div class="num" style="left:16px;top:32px;font-size:20px">${fmt(S.points)}P</div>
+      <div style="right:16px;top:14px;font-size:12px;color:var(--sub)">상대 진영</div>
+      <div style="right:16px;top:36px;font-size:14px;font-weight:700;color:var(--oText)">${opp().s} ${80+(S.count%37)}명 활동 중</div>
+    </div>
+    <button class="btn p" data-act="${enough?"toCard":"needPoints"}" style="left:16px;top:180px;width:358px;height:56px;border-radius:28px;font-size:16px;${enough?"":"opacity:.45"}">${enough?"😈 지금 도발하기":`포인트 부족 · ${COST}P 필요`}</button>
+    <button class="btn g" data-act="toRoomClose" style="left:16px;top:246px;width:358px;height:52px;border-radius:26px;font-size:16px">다음 예측으로 포인트 벌기</button>
+    <button class="link" data-act="closeSheet" style="left:0;right:0;top:310px;height:30px">닫기</button>
+  </div>`;
+}
+
+function scrEnd(){
+  const rec = S.recordMode;
+  const st = S.stats;
+  const myWin = (S.score.lg > S.score.doosan ? "lg" : S.score.lg < S.score.doosan ? "doosan" : null);
+  const won = myWin === S.team;
+  const title = rec ? "내 기록" : "경기 종료!";
+  const line = rec ? `${B().inn} 진행 중 · 보유 ${fmt(S.points)}P`
+    : myWin ? (won ? `🏆 ${T(myWin).s} 승리 · 내 진영이 이겼어요!` : `😤 ${T(myWin).s} 승리 · 다음 경기에서 복수해요`) : "🤝 무승부 · 승부는 다음 경기에서";
+  return `<div class="scr in">
+    ${burst(-80,90,550,562, rec||won?"var(--p)":"#2c2c2e","","spin")}
+    ${status()}
+    ${rec?`<button data-act="back" class="sf" style="left:12px;top:48px;width:36px;height:40px;font-size:30px;font-weight:700;text-align:left;padding-left:8px">‹</button>`:""}
+    <div class="ctr t-title pop" style="top:236px;font-size:64px;line-height:90px">${title}</div>
+    <div class="ctr num" style="top:338px;font-size:36px">${scoreText()}</div>
+    <div class="ctr" style="top:404px;font-size:15px;font-weight:700">${line}</div>
+    <div class="glass" style="left:16px;top:520px;width:358px;height:190px;border-radius:28px">
+      <div style="left:20px;top:20px;font-size:16px;font-weight:700">${rec?"지금까지의 기록":"오늘의 내 기록"}</div>
+      ${avatar(20,58,40,[...S.nick][0],"var(--pBg)",17,S.avatar)}
+      <div style="left:72px;top:60px;font-size:15px;font-weight:700">${esc(S.nick)} · ${my().s}</div>
+      <div style="left:72px;top:80px;font-size:13px;color:var(--sub)">적중 ${st.hits}/${st.tries} · 획득 +${fmt(st.earned)}P</div>
+      <button class="btn w" data-act="toShare" style="left:246px;top:60px;width:92px;height:36px;border-radius:18px;font-size:17px">공유</button>
+      <div class="av" style="left:20px;top:118px;width:40px;height:40px;background:var(--pBg);font-size:17px">😈</div>
+      <div style="left:72px;top:120px;font-size:15px;font-weight:700">보낸 도발 ${st.sent}회</div>
+      <div style="left:72px;top:140px;font-size:13px;color:var(--sub)">받은 도발 ${st.recv}회${st.hero?` · 첫 영웅 ${st.hero}`:""}</div>
+    </div>
+    ${rec
+      ? `<button class="btn p" data-act="toRoom" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">경기방으로 돌아가기</button>
+         <button class="link" data-act="toShare" style="left:0;right:0;top:798px;height:30px">친구에게 기록 공유</button>`
+      : `<button class="btn p" data-act="toShare" style="left:16px;top:734px;width:358px;height:60px;border-radius:30px;font-size:17px">친구에게 결과 공유</button>
+         <button class="link" data-act="replay" style="left:0;right:0;top:798px;height:30px">다른 경기 보기</button>`}
+    ${homeInd()}
+  </div>`;
+}
+
+function scrShare(){
+  const em=[[18,120,40],[300,157,54],[40,682,48],[283,710,36],[320,90,28]];
+  return `<div class="scr in">
+    ${burst(-120,-60,640,654,"var(--p)","","spin")}
+    <div style="left:0;top:0;width:390px;height:844px;background:rgba(0,0,0,.5)"></div>
+    ${status()}
+    <button data-act="back" class="sf" style="left:12px;top:48px;width:36px;height:40px;font-size:30px;font-weight:700;text-align:left;padding-left:8px;z-index:3">‹</button>
+    <div class="ctr" style="top:62px"><span class="st" style="background:rgba(0,0,0,.5);padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700">친구에게 이렇게 보여요</span></div>
+    ${em.map(([x,y,s],i)=>`<div class="wob" style="left:${x}px;top:${y}px;font-size:${s}px;animation-delay:${i*.35}s">🔥</div>`).join("")}
+    <div class="glass pop" style="left:24px;top:210px;width:342px;height:430px;border-radius:36px">
+      <div class="ctr" style="top:40px;font-size:96px;line-height:110px">✉️</div>
+      <div class="ctr" style="top:156px;font-size:22px;font-weight:700">${esc(S.nick)}님의 도전장!</div>
+      <div class="ctr" style="top:192px;font-size:13px;color:var(--body)">${my().s} 팬 · ${scoreText()} ${B().inn} 진행 중</div>
+      <div style="left:32px;top:226px;width:278px;height:56px;border-radius:28px;background:var(--surface);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700"><span class="st">“야구 몰라도 돼요, 저부터 이겨봐요”</span></div>
+      <button class="btn p" data-act="copyLink" style="left:24px;top:306px;width:294px;height:56px;border-radius:28px;font-size:17px">초대 링크 복사하기</button>
+      <button class="link" data-act="back" style="left:0;right:0;top:374px;height:30px;font-size:15px">돌아가기</button>
+    </div>
+    ${homeInd()}
+  </div>`;
+}
+
+/* ================= render ================= */
+let lastScr=null, lastOv=null, waitT=null;
+function render(){
+  const ovKey = [S.sheet, !!S.recv, !!S.banner, S.toast].join("|");
+  phone.classList.toggle("still", lastScr===S.screen);
+  phone.classList.toggle("stillov", lastOv===ovKey);
+  lastScr=S.screen; lastOv=ovKey;
+  if (S.screen==="room" && S.phase==="waiting" && !S.sheet && !S.recv && !waitT) waitT=setTimeout(()=>{ waitT=null; if(S.screen==="room"&&S.phase==="waiting"&&!S.sheet&&!S.recv) nextBat(); }, 1800);
+  theme(S.screen==="setup" ? S.draftTeam : S.team);
+  const scr = {start:scrStart, setup:scrSetup, home:scrHome, room:scrRoom, result:scrResult, card:scrCard, sent:scrSent, end:scrEnd, share:scrShare}[S.screen]();
+  let ov = "";
+  if (S.sheet==="team") ov += sheetTeam();
+  if (S.sheet==="howto") ov += sheetHowto();
+  if (S.sheet==="counter") ov += sheetCounter();
+  if (S.sheet==="confirm") ov += modalConfirm();
+  if (S.recv) ov += ovRecv();
+  if (S.banner && !S.recv) ov += `<div class="banner glass in" data-act="openBanner" style="background:rgba(28,28,30,.9)">
+      <span style="font-size:30px">${S.banner.e}</span>
+      <span style="flex:1;min-width:0"><span style="display:block;font-size:12px;color:var(--oText);font-weight:700">${esc(S.banner.from)} · ${opp().s} 팬의 도발</span><span style="display:block;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">“${esc(S.banner.q)}”</span></span>
+      <span style="font-size:12px;color:var(--sub)">보기 ›</span></div>`;
+  if (S.toast) ov += `<div class="toast glass in" style="background:rgba(28,28,30,.92)">${S.toast}</div>`;
+  phone.innerHTML = scr + ov;
+  bindInputs();
+}
+function bindInputs(){
+  const n = document.getElementById("nick");
+  if (n) n.oninput = () => {
+    S.nick = n.value;
+    const ok = nickOk(S.nick);
+    document.getElementById("cnt").textContent = `${[...S.nick].length}/10`;
+    const m = document.getElementById("nmsg");
+    m.textContent = ok ? "✓ 사용 가능한 닉네임이에요" : "닉네임은 2~10자로 입력해 주세요";
+    m.style.color = ok ? "var(--ok)" : "var(--err)";
+    document.getElementById("inpbox").style.borderColor = ok ? "var(--p)" : "var(--err)";
+    document.getElementById("enter").disabled = !ok;
+    document.getElementById("prog").style.width = (ok?342:228)+"px";
+  };
+  if (n) n.onkeydown = e => { if (e.key==="Enter" && nickOk(S.nick)) act("enter"); };
+  const q = document.getElementById("tq");
+  if (q) q.oninput = () => { S.sheetQuery = q.value; const pos=q.selectionStart; render(); const q2=document.getElementById("tq"); q2.focus(); q2.setSelectionRange(pos,pos); };
+}
+
+let toastT;
+function toast(msg, ms=1800){ S.toast = msg; render(); clearTimeout(toastT); toastT = setTimeout(()=>{ S.toast=null; render(); }, ms); }
+function go(screen, opts={}){ S.prev = S.screen; S.screen = screen; S.sheet = opts.sheet ?? null; Object.assign(S, opts.set||{}); render(); }
+
+/* ================= game loop ================= */
+let tickT=null, phaseT=null, recvT=null, sentT=null;
+function startAtBat(){
+  clearTimeout(phaseT);
+  S.phase="open"; S.left=VOTE_SEC; S.pick=null; S.ratio=null; S.friends=null; S.started=false;
+  S.count = 190 + Math.floor(Math.random()*50);
+  ensureTick();
+}
+function ensureTick(){
+  if (tickT) return;
+  tickT = setInterval(() => {
+    if (S.screen!=="room" || S.sheet==="confirm" || S.recv) return;
+    if (S.phase==="open" || S.phase==="picked"){
+      S.left--; S.count += Math.floor(Math.random()*4);
+      if (S.left<=0) lock(); else softRender();
+    }
+  }, 1000);
+}
+function softRender(){ if (S.screen==="room") { S.started=true; render(); } }
+function lock(){
+  const b = B();
+  if (!S.pick){
+    S.phase="missed"; render();
+    applyRuns(b);
+    phaseT = setTimeout(()=>nextBat(), 3200);
+    return;
+  }
+  S.phase="locked";
+  S.ratio = 45 + Math.floor(Math.random()*30);
+  S.friends = ["준","서","도"].map(()=> Math.random()<.5?"출루":"아웃");
+  render();
+  phaseT = setTimeout(()=>reveal(), 2400);
+}
+function applyRuns(b){ if (b.runs) for (const k in b.runs) S.score[k]+=b.runs[k]; }
+function reveal(){
+  const b = B();
+  const win = (S.pick==="safe") === b.safe;
+  S.stats.tries++;
+  const before = S.points;
+  if (win){ S.points += REWARD; S.stats.hits++; S.stats.earned += REWARD; if (!S.stats.hero) S.stats.hero = b.name; }
+  applyRuns(b);
+  S.last = {win, before, batter:b.name, result:b.result, safe:b.safe, pick:S.pick, tip:b.tip};
+  S.phase="waiting"; S.preview=false;
+  go("result");
+  if (!win) scheduleRecv(5500);
+}
+function nextBat(){
+  clearTimeout(phaseT);
+  S.i++;
+  if (S.i >= BATTERS.length){ S.i = BATTERS.length-1; S.recordMode=false; S.phase=null; go("end"); return; }
+  startAtBat();
+  if (S.screen!=="room") go("room"); else render();
+}
+function scheduleRecv(ms){
+  clearTimeout(recvT);
+  recvT = setTimeout(()=>incoming(), ms);
+}
+function incoming(){
+  if (!["room","home","result","card"].includes(S.screen) || S.recv || S.sheet) { scheduleRecv(4000); return; }
+  const f = fans()[Math.floor(Math.random()*2)];
+  const c = CARDS[1+Math.floor(Math.random()*(CARDS.length-1))];
+  const r = {from:f.n, e:c.e, q:c.q};
+  S.stats.recv++;
+  if (S.screen==="room" && S.phase==="open"){ S.banner = r; render(); setTimeout(()=>{ if (S.banner===r){ S.banner=null; render(); } }, 6000); }
+  else { S.recv = r; render(); }
+}
+
+/* ================= actions ================= */
+function act(a, el){
+  const d = el ? el.dataset : {};
+  switch(a){
+    case "toStart": go("start"); break;
+    case "toSetup": S.draftTeam=S.team; go("setup"); break;
+    case "randNick": { let n; do { n = RANDOM_NICKS[Math.floor(Math.random()*RANDOM_NICKS.length)]; } while(n===S.nick); S.nick=n; render(); break; }
+    case "pickPhoto": document.getElementById("file").click(); break;
+    case "openTeam": S.sheetQuery=""; S.sheet="team"; render(); break;
+    case "selTeam": S.draftTeam=d.k; render(); break;
+    case "closeSheet": S.sheet=null; render(); break;
+    case "enter": if(!nickOk(S.nick)) return; S.nick=S.nick.trim(); S.team=S.draftTeam; go("home"); toast(`${my().s} 진영으로 참전 완료 ⚾`); break;
+    case "toHome": go("home"); break;
+    case "howto": S.sheet="howto"; render(); break;
+    case "toRoom": S.preview=false; S.recordMode=false; S.sheet=null; if(!S.phase){ startAtBat(); } go("room"); break;
+    case "toRoomClose": S.sheet=null; act("toRoom"); break;
+    case "previewWin": S.last={win:true,before:S.points,batter:"김거포",result:"볼넷",safe:true,pick:"safe",tip:BATTERS[0].tip}; go("result",{set:{preview:true}}); break;
+    case "vote": if (S.phase!=="open") return; S.pick=d.k; S.phase="picked"; S.count++; render(); break;
+    case "toCard": S.sheet=null; S.recv=null; if (S.screen!=="card") S.backTo=S.screen; go("card"); break;
+    case "tauntFan": S.target=+d.i+1; act("toCard"); break;
+    case "back": {
+      const dest = S.backTo || "home";
+      go(dest);
+      if (dest==="room"){ if(!S.phase) startAtBat(); }
+      break;
+    }
+    case "target": S.target=+d.i; render(); break;
+    case "card": S.card=+d.i; S.phrase=null; render(); break;
+    case "phrase": S.phrase=d.p; render(); break;
+    case "confirm": S.sheet="confirm"; render(); break;
+    case "needPoints": toast("포인트가 부족해요 · 예측을 맞혀 100P를 모아요"); document.querySelector('[data-act="needPoints"]')?.classList.add("shake"); break;
+    case "send": {
+      S.points -= COST; S.stats.sent++;
+      S.sentTo = S.target===0 ? fans()[Math.floor(Math.random()*2)].n : fans()[S.target-1].n;
+      S.sentRead=false; S.closeIn=3; S.sheet=null;
+      go("sent");
+      clearInterval(sentT);
+      setTimeout(()=>{ if(S.screen==="sent"){ S.sentRead=true; render(); } }, 1300);
+      sentT = setInterval(()=>{ if(S.screen!=="sent"){ clearInterval(sentT); return; } S.closeIn--; if(S.closeIn<=0){ clearInterval(sentT); act("afterSent"); } else render(); }, 1000);
+      scheduleRecv(7000);
+      break;
+    }
+    case "afterSent": clearInterval(sentT); if (S.phase==="waiting" || !S.phase) nextBat(); else go("room"); break;
+    case "counter": S.recv=null; S.banner=null; if (S.screen!=="room"){ if(!S.phase) startAtBat(); S.screen="room"; } S.sheet="counter"; render(); break;
+    case "closeRecv": S.recv=null; render(); break;
+    case "openBanner": S.recv=S.banner; S.banner=null; render(); break;
+    case "nextBat": nextBat(); break;
+    case "explain": toast(`💡 ${S.last.tip}`, 3200); break;
+    case "toShare": if (S.screen!=="share") S.backTo=S.screen; go("share"); break;
+    case "toRecord": S.backTo=S.screen; S.recordMode=true; go("end"); break;
+    case "copyLink": {
+      const text = `${S.nick}님의 도전장! 야구 팬덤 대결에서 ${my().s} vs ${opp().s} 같이 붙어요 ⚾`;
+      try { navigator.clipboard?.writeText(text + " " + location.href); } catch(e){}
+      toast("🔗 초대 링크를 복사했어요");
+      break;
+    }
+    case "replay": resetGame(); go("home"); toast("새 경기를 준비했어요"); break;
+  }
+}
+function resetGame(){
+  clearTimeout(phaseT); clearTimeout(recvT);
+  Object.assign(S, {score:{lg:2,doosan:1}, i:0, phase:null, pick:null, ratio:null, friends:null, stats:{hits:0,tries:0,earned:0,sent:0,recv:0,hero:null}, recordMode:false});
+}
+
+phone.addEventListener("click", e => {
+  const el = e.target.closest("[data-act]");
+  if (!el || el.disabled) return;
+  if (el.classList.contains("ov") && e.target !== el) return; // backdrop only
+  act(el.dataset.act, el);
+});
+document.getElementById("file").onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader(); r.onload = () => { S.avatar = r.result; render(); }; r.readAsDataURL(f);
+};
+document.querySelectorAll("[data-demo]").forEach(b => b.onclick = () => {
+  const k = b.dataset.demo;
+  if (k==="reset"){ clearTimeout(phaseT); clearTimeout(recvT); S = fresh(); render(); return; }
+  if (S.screen==="start"||S.screen==="setup"){ S.team=S.draftTeam; }
+  if (k==="skip"){ S.recv=null; S.sheet=null; if(!S.phase) { startAtBat(); go("room"); } else if (S.phase==="open"||S.phase==="picked"){ if(!S.pick){ S.pick=Math.random()<.5?"safe":"out"; } S.left=0; if(S.screen!=="room") go("room"); lock(); } else nextBat(); }
+  if (k==="taunt"){ S.sheet=null; clearTimeout(recvT); if(S.screen==="start"||S.screen==="setup") go("home"); const f=fans()[0]; S.stats.recv++; S.recv={from:f.n,e:"🐢",q:"주루가 거북이네~"}; render(); }
+  if (k==="charge"){ S.points+=300; toast("+300P 충전 (데모)"); }
+  if (k==="end"){ clearTimeout(phaseT); S.i=BATTERS.length-1; S.phase=null; S.recordMode=false; S.sheet=null; S.recv=null; go("end"); }
+});
+
+/* ================= fit ================= */
+const holder = document.getElementById("holder");
+function fit(){
+  const mobile = window.innerWidth <= 600;
+  document.body.classList.toggle("mobile", mobile);
+  const s = mobile ? Math.min(window.innerWidth/390, window.innerHeight/844) : Math.min(1, (window.innerHeight-48)/844);
+  phone.style.transform = `scale(${s})`;
+  holder.style.width = 390*s+"px"; holder.style.height = 844*s+"px";
+}
+window.addEventListener("resize", fit); fit();
+render();
+})();
+</script>
+</body>
+</html>
