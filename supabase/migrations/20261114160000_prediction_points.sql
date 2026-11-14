@@ -201,3 +201,36 @@ $$;
 
 revoke all on function public.poll_rounds(text) from public, anon, authenticated;
 grant execute on function public.poll_rounds(text) to authenticated;
+
+-- 리플레이 (재)시작. 같은 경기의 열린 타석을 무효 처리하고 새 일정을 넣는다 — 한 트랜잭션.
+-- 정답이 들어 있으므로 서버 전용 키(service_role)만 호출할 수 있다.
+create function public.start_replay_rounds(p_game_id text, p_rounds jsonb)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  inserted integer;
+begin
+  with voided as (
+    update public.prediction_rounds
+      set status = 'void', settled_at = now()
+      where game_id = p_game_id and status = 'open'
+      returning id
+  )
+  update public.fan_predictions
+    set status = 'void'
+    where round_id in (select id from voided) and status = 'pending';
+
+  insert into public.prediction_rounds (id, game_id, batter, answer, opens_at, locks_at, result_at)
+    select r.id, p_game_id, r.batter, r.answer, r.opens_at, r.locks_at, r.result_at
+    from jsonb_to_recordset(p_rounds)
+      as r(id text, batter text, answer text, opens_at timestamptz, locks_at timestamptz, result_at timestamptz);
+  get diagnostics inserted = row_count;
+  return inserted;
+end;
+$$;
+
+revoke all on function public.start_replay_rounds(text, jsonb) from public, anon, authenticated;
+grant execute on function public.start_replay_rounds(text, jsonb) to service_role;

@@ -65,7 +65,8 @@ export async function POST(request: Request) {
   const runId = new Date(startedAt).toISOString().replace(/\D/g, "").slice(0, 14);
   const rounds = replayRounds(game, runId, startedAt);
   const supabase = createClient(url, secretKey, { auth: { persistSession: false } });
-  const { error } = await supabase.from("prediction_rounds").insert(rounds);
+  // 이전 회차의 열린 타석은 무효 처리된다 (진행자가 다시 시작해도 타석이 겹치지 않음)
+  const { error } = await supabase.rpc("start_replay_rounds", { p_game_id: game.gameId, p_rounds: rounds });
   if (error) {
     return Response.json({ error: "투표 일정을 만들지 못했습니다." }, { status: 500 });
   }
