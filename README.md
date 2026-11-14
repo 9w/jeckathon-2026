@@ -31,13 +31,13 @@ pnpm dev          # http://localhost:3000
 
 ## Vercel 배포
 
-GitHub 연동 완료 (Vercel 프로젝트: `qwer9w-gmailcoms-projects/jeckathon-2026`)
+GitHub 연동 완료
 
 - `main` push → 프로덕션(https://jeckathon-2026.vercel.app) 자동 배포
 - 다른 브랜치 push / PR → 프리뷰 URL 자동 생성
 
-로그 확인 (CLI, 로컬 폴더가 link 안 된 경우 scope/project 지정):
+로그 확인 (CLI, 최초 1회 `pnpm dlx vercel link`로 프로젝트 연결 필요):
 
 ```bash
-pnpm dlx vercel logs --scope qwer9w-gmailcoms-projects --project jeckathon-2026 --query 'level:error'
+pnpm dlx vercel logs --query 'level:error'
 ```
