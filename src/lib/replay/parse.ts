@@ -1,4 +1,4 @@
-import type { PlateAppearance, ReplayGame } from "./types";
+import type { PlateAppearance, ReplayGame, ReplayPitch, ScoreboardEvent } from "./types";
 
 const gameId = "20260903LGOB0";
 const gameDate = "2026-09-03";
@@ -19,11 +19,27 @@ function isClockTime(value: unknown): value is string {
   return typeof value === "string" && timePattern.test(value);
 }
 
-function isAppearance(value: unknown): value is Omit<PlateAppearance, "resultTime"> & { resultTime?: string | null } {
+function isIntegerBetween(value: unknown, min: number, max: number): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= min && value <= max;
+}
+
+function isPitch(value: unknown): value is ReplayPitch {
+  return isRecord(value) && (value.time === null || isClockTime(value.time)) && isText(value.pitcher)
+    && (value.outcome === "ball" || value.outcome === "strike" || value.outcome === "foul" || value.outcome === "in-play")
+    && isIntegerBetween(value.balls, 0, 4) && isIntegerBetween(value.strikes, 0, 3);
+}
+
+function isScoreboardEvent(value: unknown): value is ScoreboardEvent {
+  return isRecord(value) && isClockTime(value.time) && isIntegerBetween(value.inning, 1, 20)
+    && (value.half === "top" || value.half === "bottom") && isIntegerBetween(value.outs, 0, 3)
+    && isIntegerBetween(value.away, 0, 100) && isIntegerBetween(value.home, 0, 100);
+}
+
+function isAppearance(value: unknown): value is Omit<PlateAppearance, "resultTime" | "pitches"> & { resultTime?: string | null; pitches?: unknown } {
   if (!isRecord(value)) return false;
 
   return isText(value.id) && isText(value.batter) && isText(value.result)
-    && typeof value.inning === "number" && Number.isInteger(value.inning) && value.inning >= 1 && value.inning <= 20
+    && isIntegerBetween(value.inning, 1, 20)
     && (value.half === "top" || value.half === "bottom")
     && (value.choice === "safe" || value.choice === "out" || value.choice === null)
     && typeof value.pitchCount === "number" && Number.isInteger(value.pitchCount) && value.pitchCount >= 0
@@ -51,11 +67,34 @@ export function parseReplayGame(value: unknown): ReplayGame | null {
     const firstPitchTime = item.firstPitchTime ?? lastTime;
     if (firstPitchTime < lastTime || firstPitchTime > endedAt) return null;
     if (item.resultTime && (item.resultTime < firstPitchTime || item.resultTime > endedAt)) return null;
+    const { pitches, ...appearance } = item;
+    let lastPitchTime = firstPitchTime;
+    if (pitches !== undefined) {
+      if (!Array.isArray(pitches) || pitches.length !== item.pitchCount || !pitches.every(isPitch)) return null;
+      for (const { time } of pitches) {
+        if (time === null) continue;
+        if (time < lastPitchTime || time > (item.resultTime ?? endedAt)) return null;
+        lastPitchTime = time;
+      }
+    }
     lastHalf = half;
-    lastTime = item.resultTime ?? firstPitchTime;
+    lastTime = item.resultTime ?? lastPitchTime;
     ids.add(item.id);
-    appearances.push({ ...item, resultTime: item.resultTime ?? null });
+    appearances.push({ ...appearance, resultTime: item.resultTime ?? null, ...(pitches === undefined ? {} : { pitches }) });
   }
 
-  return { gameId, date: gameDate, awayTeam: "LG", homeTeam: "두산", sourceUrl: gameRecordUrl, startedAt, endedAt, appearances };
+  const scoreboard = value.scoreboard;
+  if (scoreboard !== undefined) {
+    if (!Array.isArray(scoreboard) || !scoreboard.length || !scoreboard.every(isScoreboardEvent)) return null;
+    let lastEventTime = startedAt;
+    for (const { time } of scoreboard) {
+      if (time < lastEventTime || time > endedAt) return null;
+      lastEventTime = time;
+    }
+  }
+
+  return {
+    gameId, date: gameDate, awayTeam: "LG", homeTeam: "두산", sourceUrl: gameRecordUrl, startedAt, endedAt, appearances,
+    ...(scoreboard === undefined ? {} : { scoreboard }),
+  };
 }

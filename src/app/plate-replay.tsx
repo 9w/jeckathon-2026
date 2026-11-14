@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { appearanceAt, appearanceOffsets, clockSeconds, formatClock, formatElapsed, playbackSecond } from "@/lib/replay/clock";
 import { parseReplayGame } from "@/lib/replay/parse";
-import type { ReplayGame } from "@/lib/replay/types";
+import { pitchAt, pitchCursorTime, scoreboardAt } from "@/lib/replay/pitches";
+import type { ReplayGame, ReplayPitch } from "@/lib/replay/types";
 
 const maxReplayBytes = 512 * 1024;
 const focusClass = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fan-text)]";
@@ -11,6 +12,7 @@ const controlClass = `min-h-11 rounded-full border border-[var(--fan-line)] bg-[
 const subtleClass = "text-[color:var(--fan-sub)]";
 const linkClass = `inline-flex min-h-11 items-center rounded-md text-xs font-semibold underline decoration-[var(--fan-sub)] underline-offset-4 hover:decoration-current ${focusClass}`;
 const clockClass = "font-[family-name:var(--font-fan-number,ui-sans-serif)] text-xl leading-tight font-extrabold tabular-nums sm:text-[1.625rem]";
+const pitchLabels: Record<ReplayPitch["outcome"], string> = { ball: "볼", strike: "스트라이크", foul: "파울", "in-play": "인플레이" };
 
 type ReplayLoadState =
   | { status: "loading" }
@@ -118,16 +120,26 @@ export function PlateReplay() {
 
 function ReplayTimeline({ game }: { game: ReplayGame }) {
   const [position, setPosition] = useState(0);
+  const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [playback, setPlayback] = useState<{ offset: number; beganAt: number } | null>(null);
   const start = clockSeconds(game.startedAt) ?? 0;
   const duration = (clockSeconds(game.endedAt) ?? start) - start;
   const startTimes = useMemo(() => appearanceOffsets(game.appearances, start), [game.appearances, start]);
-  const index = appearanceAt(startTimes, position);
+  const pitches = useMemo(() => game.appearances.flatMap((appearance, appearanceIndex) =>
+    (appearance.pitches ?? []).map((pitch, pitchIndex) => ({ ...pitch, appearanceIndex, pitchIndex }))), [game.appearances]);
+  const clock = formatClock(start + position);
+  const pitchIndex = selectedPitch ?? pitchAt(pitches, clock);
+  const pitch = pitches[pitchIndex];
+  const index = selectedPitch === null ? appearanceAt(startTimes, position) : pitch.appearanceIndex;
   const lastIndex = game.appearances.length - 1;
   const appearance = game.appearances[index];
+  const currentPitch = pitch?.appearanceIndex === index ? pitch : undefined;
+  const seenPitches = appearance.pitches?.slice(0, (currentPitch?.pitchIndex ?? -1) + 1);
+  const pitcher = currentPitch?.pitcher ?? appearance.pitches?.[0]?.pitcher;
+  const score = game.scoreboard && scoreboardAt(game.scoreboard, clock);
+  const previousHalf = score && (score.inning !== appearance.inning || score.half !== appearance.half);
   const inning = `${appearance.inning}회 ${appearance.half === "top" ? "초" : "말"}`;
   const battingTeam = appearance.half === "top" ? game.awayTeam : game.homeTeam;
-  const clock = formatClock(start + position);
   const elapsed = formatElapsed(position);
   const result = appearance.resultTime
     ? clock >= appearance.resultTime ? appearance.result : "진행 중"
@@ -147,6 +159,7 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
 
   function seek(second: number) {
     setPlayback(null);
+    setSelectedPitch(null);
     setPosition(second);
   }
 
@@ -157,8 +170,14 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
       return;
     }
     const offset = position === duration ? 0 : position;
-    setPosition(offset);
+    seek(offset);
     setPlayback({ offset, beganAt: now });
+  }
+
+  function stepPitch(index: number) {
+    const time = pitchCursorTime(pitches, index);
+    seek(time ? (clockSeconds(time) ?? start) - start : startTimes[pitches[index].appearanceIndex]);
+    setSelectedPitch(index);
   }
 
   return (
@@ -179,15 +198,33 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
         </div>
       </dl>
 
+      <div role="group" aria-label="전광판" className="grid grid-cols-3 items-center divide-x divide-[var(--fan-line)] rounded-[1.25rem] bg-[var(--fan-surface)] py-3 text-center">
+        <div className="space-y-1">
+          <p className={`text-xs font-semibold ${subtleClass}`}>{game.awayTeam}</p>
+          <p className={clockClass}>{score?.away ?? "–"}</p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-sm font-bold">{score ? `${score.inning}회 ${score.half === "top" ? "초" : "말"}` : inning}</p>
+          <p className={`text-xs font-semibold ${subtleClass}`}>{score ? `${score.outs}아웃` : "아웃 미기록"}</p>
+        </div>
+        <div className="space-y-1">
+          <p className={`text-xs font-semibold ${subtleClass}`}>{game.homeTeam}</p>
+          <p className={clockClass}>{score?.home ?? "–"}</p>
+        </div>
+      </div>
+
       <div className="min-h-24 space-y-2 rounded-[1.25rem] bg-[var(--fan-surface)] px-4 py-3">
         <p className="flex flex-wrap items-center gap-2 text-xs font-bold">
           <span className="size-2 rounded-full bg-[var(--fan-accent)]" aria-hidden="true" />
-          <span>{inning}</span>
-          <span>{battingTeam} 공격</span>
+          <span>{previousHalf ? `${inning} 직전 타석` : `${battingTeam} 공격`}</span>
         </p>
         <dl className="grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-3 gap-y-1 border-t border-[var(--fan-line)] pt-2 text-sm">
+          <dt className={`text-xs ${subtleClass}`}>투수</dt>
+          <dd className="font-bold">{pitcher ?? "기록 없음"}</dd>
           <dt className={`text-xs ${subtleClass}`}>타자</dt>
           <dd className="font-bold">{appearance.batter}</dd>
+          <dt className={`text-xs ${subtleClass}`}>볼카운트</dt>
+          <dd className="font-bold tabular-nums">{appearance.pitches?.length ? `${currentPitch?.balls ?? 0}볼 ${currentPitch?.strikes ?? 0}스트라이크` : "기록 없음"}</dd>
           <dt className={`text-xs ${subtleClass}`}>실제 결과</dt>
           <dd className="min-w-0 font-semibold wrap-break-word">{result}</dd>
           <dt className={`text-xs ${subtleClass}`}>첫 투구</dt>
@@ -195,6 +232,25 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
             {appearance.firstPitchTime ? `${appearance.firstPitchTime} KST` : "시각 미기록"} · {appearance.pitchCount}구
           </dd>
         </dl>
+        <div className="border-t border-[var(--fan-line)] pt-2">
+          <h3 className="text-xs font-bold">구별 결과</h3>
+          <div className="mt-1 h-24">
+            {seenPitches?.length ? (
+              <ol aria-label="이번 타석 구별 결과 (최신순)" reversed start={seenPitches.length} className="max-h-full divide-y divide-[var(--fan-line)] overflow-y-auto">
+                {seenPitches.toReversed().map((entry, index) => {
+                  const number = seenPitches.length - index;
+                  return (
+                    <li key={number} aria-current={index === 0 ? "step" : undefined} className="grid grid-cols-[2rem_1fr_auto] gap-x-2 rounded px-1.5 py-1.5 text-xs tabular-nums aria-current:bg-[var(--fan-raised)]">
+                      <span>{number}구</span>
+                      <span>{pitchLabels[entry.outcome]}</span>
+                      <span className={subtleClass}>{entry.time ?? "시각 미기록"}</span>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : <p className={`text-xs ${subtleClass}`}>{appearance.pitches?.length ? "첫 투구 전" : "구별 기록 없음"}</p>}
+          </div>
+        </div>
       </div>
 
       <div>
@@ -218,6 +274,12 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
           <button type="button" onClick={togglePlayback} className={`min-h-11 rounded-full bg-[var(--fan-text)] px-2 text-xs font-extrabold break-keep text-[color:var(--fan-bg)] hover:bg-white ${focusClass}`}>{playback ? "일시정지" : "재생"}</button>
           <button type="button" onClick={() => seek(startTimes[index + 1])} disabled={index === lastIndex} className={controlClass}>다음 타석</button>
         </div>
+        {pitches.length > 0 && (
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => stepPitch(pitchIndex - 1)} disabled={pitchIndex < 1} className={controlClass}>이전 구</button>
+            <button type="button" onClick={() => stepPitch(pitchIndex + 1)} disabled={pitchIndex >= pitches.length - 1} className={controlClass}>다음 구</button>
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2">
           <button type="button" onClick={() => seek(startTimes[0])} className={linkClass}>첫 투구로 이동</button>
           <span className={`text-xs ${subtleClass}`}>영상과 함께 1배속으로 재생</span>

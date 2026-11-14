@@ -41,6 +41,8 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 
 2026년 9월 3일 LG·두산전은 투표 화면 하단 **경기 기록 파일 열기**에서 내부 검증용 `lg-doosan-20260903.json`을 선택해 재생합니다. 경기 시각과 경과 시간은 1배속으로 진행하고, 타임라인은 1초씩 이동합니다. 실제 경기 영상의 첫 투구 장면에서 경과 `0:00:06`(18:32:07 KST)에 맞춰 재생합니다. 편집으로 시간이 건너뛴 영상은 타임라인을 다시 맞춥니다. [KBO 게임센터](https://www.koreabaseball.com/Schedule/GameCenter/Main.aspx?gameDate=20260903&gameId=20260903LGOB0&section=REVIEW)
 
+구별 기록이 포함된 파일은 전광판, 투수·타자, 볼카운트와 투구 결과를 표시합니다. **이전 구**와 **다음 구**를 누르면 재생을 멈추고 해당 투구로 이동합니다. 정확한 시각이 없는 2구는 직전 기록 시각에 표시합니다.
+
 파일 선택 시 브라우저 메모리에서 읽으며 페이지를 새로 열면 다시 선택해야 합니다. 로컬 개발 서버는 `.local-replay/lg-doosan-20260903.json`이 있으면 자동으로 읽습니다. 구간은 완료된 66타석과 1회초 주루사로 중단된 문보경 타석을 포함합니다. 첫 투구 시각은 보정한 Sportradar 기록 기준입니다. [무료 체험 조건](https://developer.sportradar.com/sportradar-updates/page/terms-and-conditions)에 따라 데이터 파일은 Git과 Vercel 배포에서 제외합니다.
 
 ## 모바일 웹 셋팅
