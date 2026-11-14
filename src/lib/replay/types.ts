@@ -7,6 +7,7 @@ export type PlateAppearance = {
   choice: "safe" | "out" | null;
   pitchCount: number;
   firstPitchTime: string | null;
+  resultTime: string | null;
 };
 
 export type ReplayGame = {
@@ -15,5 +16,7 @@ export type ReplayGame = {
   awayTeam: string;
   homeTeam: string;
   sourceUrl: string;
+  startedAt: string;
+  endedAt: string;
   appearances: PlateAppearance[];
 };

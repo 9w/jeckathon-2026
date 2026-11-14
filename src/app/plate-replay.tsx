@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { appearanceAt, appearanceOffsets, clockSeconds, formatClock, formatElapsed, playbackSecond } from "@/lib/replay/clock";
 import { parseReplayGame } from "@/lib/replay/parse";
 import type { ReplayGame } from "@/lib/replay/types";
 
-const appearanceDuration = 15_000;
 const maxReplayBytes = 512 * 1024;
 const controlClass = "min-h-11 rounded-lg border border-neutral-400 text-sm font-semibold hover:enabled:bg-neutral-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:border-neutral-300 disabled:text-neutral-500 dark:border-neutral-600 dark:hover:enabled:bg-neutral-800";
 
@@ -113,34 +113,48 @@ export function PlateReplay() {
 }
 
 function ReplayTimeline({ game }: { game: ReplayGame }) {
-  const [playback, setPlayback] = useState({ index: 0, playing: false });
-  const { index, playing } = playback;
+  const [position, setPosition] = useState(0);
+  const [playback, setPlayback] = useState<{ offset: number; beganAt: number } | null>(null);
+  const start = clockSeconds(game.startedAt) ?? 0;
+  const duration = (clockSeconds(game.endedAt) ?? start) - start;
+  const startTimes = useMemo(() => appearanceOffsets(game.appearances, start), [game.appearances, start]);
+  const index = appearanceAt(startTimes, position);
   const lastIndex = game.appearances.length - 1;
   const appearance = game.appearances[index];
   const inning = `${appearance.inning}회 ${appearance.half === "top" ? "초" : "말"}`;
   const battingTeam = appearance.half === "top" ? game.awayTeam : game.homeTeam;
+  const clock = formatClock(start + position);
+  const elapsed = formatElapsed(position);
+  const result = appearance.resultTime
+    ? clock >= appearance.resultTime ? appearance.result : "진행 중"
+    : `${appearance.result} (시각 미기록)`;
 
   useEffect(() => {
-    if (!playing) return;
+    if (!playback) return;
 
-    const timeout = window.setTimeout(() => {
-      const nextIndex = index + 1;
-      setPlayback({ index: nextIndex, playing: nextIndex < lastIndex });
-    }, appearanceDuration);
+    const timer = window.setInterval(() => {
+      const second = playbackSecond(playback.offset, playback.beganAt, performance.now(), duration);
+      setPosition(second);
+      if (second === duration) setPlayback(null);
+    }, 100);
 
-    return () => window.clearTimeout(timeout);
-  }, [index, lastIndex, playing]);
+    return () => window.clearInterval(timer);
+  }, [duration, playback]);
 
-  function seek(nextIndex: number) {
-    setPlayback({ index: nextIndex, playing: false });
+  function seek(second: number) {
+    setPlayback(null);
+    setPosition(second);
   }
 
   function togglePlayback() {
-    if (playing) {
-      seek(index);
+    const now = performance.now();
+    if (playback) {
+      seek(playbackSecond(playback.offset, playback.beganAt, now, duration));
       return;
     }
-    setPlayback({ index: index === lastIndex ? 0 : index, playing: true });
+    const offset = position === duration ? 0 : position;
+    setPosition(offset);
+    setPlayback({ offset, beganAt: now });
   }
 
   return (
@@ -149,6 +163,17 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
         <time dateTime={game.date}>{game.date}</time>
         <span>{game.awayTeam} vs {game.homeTeam}</span>
       </div>
+
+      <dl className="grid grid-cols-2 gap-3 border-y border-black/10 py-3 dark:border-white/15">
+        <div>
+          <dt className="text-xs font-medium text-neutral-600 dark:text-neutral-400">경기 시각 (KST)</dt>
+          <dd className="text-xl font-bold tabular-nums"><time aria-label="경기 시각 (KST)">{clock}</time></dd>
+        </div>
+        <div>
+          <dt className="text-xs font-medium text-neutral-600 dark:text-neutral-400">경과 시간</dt>
+          <dd className="text-xl font-bold tabular-nums"><output aria-label="경과 시간" aria-live="off">{elapsed}</output></dd>
+        </div>
+      </dl>
 
       <div className="min-h-24 space-y-1 rounded-xl bg-neutral-100 px-4 py-3 dark:bg-neutral-900">
         <p className="flex flex-wrap gap-x-2 text-sm font-semibold">
@@ -159,7 +184,7 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
           <dt className="text-neutral-600 dark:text-neutral-400">타자</dt>
           <dd className="font-semibold">{appearance.batter}</dd>
           <dt className="text-neutral-600 dark:text-neutral-400">실제 결과</dt>
-          <dd className="min-w-0 break-words font-semibold">{appearance.result}</dd>
+          <dd className="min-w-0 break-words font-semibold">{result}</dd>
           <dt className="text-neutral-600 dark:text-neutral-400">첫 투구</dt>
           <dd className="font-semibold tabular-nums">
             {appearance.firstPitchTime ? `${appearance.firstPitchTime} KST` : "시각 미기록"} · {appearance.pitchCount}구
@@ -169,25 +194,28 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
 
       <div>
         <div className="flex items-baseline justify-between gap-2 text-sm">
-          <label htmlFor="plate-timeline" className="font-semibold">타석 타임라인 <span aria-hidden="true" className="text-xs font-medium text-neutral-600 dark:text-neutral-400">검증용</span></label>
+          <label htmlFor="plate-timeline" className="font-semibold">경기 타임라인</label>
           <span className="shrink-0 tabular-nums">{index + 1} / {game.appearances.length} 타석</span>
         </div>
         <input
           id="plate-timeline"
           type="range"
           min={0}
-          max={lastIndex}
+          max={duration}
           step={1}
-          value={index}
-          disabled={lastIndex === 0}
-          aria-valuetext={`${index + 1} / ${game.appearances.length} 타석, ${inning}, ${appearance.batter}`}
+          value={position}
+          aria-valuetext={`${clock} KST, 경과 ${elapsed}, ${inning}, ${appearance.batter}`}
           onChange={(event) => seek(event.currentTarget.valueAsNumber)}
           className="block h-11 w-full cursor-ew-resize accent-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground disabled:cursor-default"
         />
         <div className="grid grid-cols-3 gap-2">
-          <button type="button" onClick={() => seek(index - 1)} disabled={index === 0} className={controlClass}>이전 타석</button>
-          <button type="button" onClick={togglePlayback} disabled={lastIndex === 0} className={controlClass}>{playing ? "일시정지" : "재생"}</button>
-          <button type="button" onClick={() => seek(index + 1)} disabled={index === lastIndex} className={controlClass}>다음 타석</button>
+          <button type="button" onClick={() => seek(startTimes[index - 1])} disabled={index === 0} className={controlClass}>이전 타석</button>
+          <button type="button" onClick={togglePlayback} className={controlClass}>{playback ? "일시정지" : "재생"}</button>
+          <button type="button" onClick={() => seek(startTimes[index + 1])} disabled={index === lastIndex} className={controlClass}>다음 타석</button>
+        </div>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-x-2">
+          <button type="button" onClick={() => seek(startTimes[0])} className="min-h-11 text-sm font-semibold underline underline-offset-4">첫 투구로 이동</button>
+          <span className="text-xs text-neutral-600 dark:text-neutral-400">영상과 함께 1배속으로 재생</span>
         </div>
       </div>
     </div>
