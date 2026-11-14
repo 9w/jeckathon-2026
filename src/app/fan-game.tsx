@@ -222,7 +222,7 @@ export function FanGame() {
               {editingNickname && (
                 <form id="nickname-form" onSubmit={submitNickname} className="space-y-2">
                   <label htmlFor="nickname" className="block text-sm font-semibold">닉네임</label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
                     <input
                       id="nickname"
                       value={nickname}
@@ -233,6 +233,7 @@ export function FanGame() {
                       autoFocus
                       autoComplete="off"
                       placeholder="2~16자"
+                      aria-invalid={error?.field === "nickname" ? true : undefined}
                       aria-describedby={error?.field === "nickname" ? "nickname-error" : undefined}
                       disabled={pending === "nickname"}
                       className="fan-input"
@@ -283,10 +284,12 @@ export function FanGame() {
                   </button>
                 ))}
               </div>
-              <p role="status" className="fan-status">
-                {vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}
-              </p>
-              {error?.field === "vote" && <p role="alert" className="fan-error">{error.message}</p>}
+              <div className="grid min-h-5">
+                <p role="status" className="fan-status col-start-1 row-start-1">
+                  {vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}
+                </p>
+                {error?.field === "vote" && <p role="alert" className="fan-error col-start-1 row-start-1">{error.message}</p>}
+              </div>
             </section>
             <PlateReplay />
           </>
@@ -316,22 +319,23 @@ export function FanGame() {
                 </button>
               ))}
             </div>
-            {pending && <p role="status" className="fan-status">{pending === "restore" ? "참가 정보를 확인하고 있어요." : "입장하고 있어요."}</p>}
-            {!isSupabaseConfigured && <p role="status" className="fan-status">서버 연결 설정이 필요합니다.</p>}
-            {error?.field === "team" && <p role="alert" className="fan-error">{error.message}</p>}
-            {restoreError && (
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <p role="alert">참가 정보를 불러오지 못했습니다.</p>
-                <button type="button" className="min-h-11 rounded-md px-2 font-semibold underline" onClick={() => {
-                  setRestoreError(false);
-                  setPending("restore");
-                  setRestoreAttempt((attempt) => attempt + 1);
-                }}>다시 시도</button>
-              </div>
-            )}
+            <div className="min-h-11">
+              {pending && <p role="status" className="fan-status">{pending === "restore" ? "참가 정보를 확인하고 있어요." : "입장하고 있어요."}</p>}
+              {!isSupabaseConfigured && <p role="status" className="fan-status">서버 연결 설정이 필요합니다.</p>}
+              {error?.field === "team" && <p role="alert" className="fan-error">{error.message}</p>}
+              {restoreError && (
+                <div className="flex flex-wrap items-center justify-between gap-x-2">
+                  <p role="alert" className="fan-error">참가 정보를 불러오지 못했습니다.</p>
+                  <button type="button" className="fan-control" onClick={() => {
+                    setRestoreError(false);
+                    setPending("restore");
+                    setRestoreAttempt((attempt) => attempt + 1);
+                  }}>다시 시도</button>
+                </div>
+              )}
+            </div>
           </section>
         )}
-
       </main>
     </div>
   );
