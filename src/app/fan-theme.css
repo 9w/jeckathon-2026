@@ -1,0 +1,341 @@
+body:has(.fan-experience) {
+  background: #0e0e0f;
+}
+
+.fan-experience {
+  --fan-bg: #0e0e0f;
+  --fan-surface: #1c1c1e;
+  --fan-raised: #2c2c2e;
+  --fan-text: #f5f5f7;
+  --fan-sub: #a2a2a8;
+  --fan-line: #363638;
+  --fan-lg: #c30452;
+  --fan-doosan: #4e4cc8;
+  --fan-accent: var(--fan-lg);
+  --fan-accent-text: #f990b9;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  background: var(--fan-bg);
+  color: var(--fan-text);
+  color-scheme: dark;
+  font-family: "Noto Sans KR", var(--font-geist-sans), "Malgun Gothic", sans-serif;
+  word-break: keep-all;
+}
+
+.fan-experience [data-team="doosan"] {
+  --fan-accent: var(--fan-doosan);
+  --fan-accent-text: #b3b2ff;
+}
+
+.fan-experience :focus-visible {
+  outline: 2px solid var(--fan-accent-text);
+  outline-offset: 3px;
+}
+
+.fan-experience button:enabled {
+  cursor: pointer;
+}
+
+.fan-game,
+.fan-team-select {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.fan-team-select {
+  gap: 14px;
+  justify-content: center;
+}
+
+.fan-intro {
+  position: relative;
+  display: grid;
+  min-height: clamp(235px, 47svh, 390px);
+  place-items: center;
+  isolation: isolate;
+  overflow: hidden;
+  text-align: center;
+}
+
+.fan-intro-copy {
+  position: relative;
+  padding: 26px 4px;
+}
+
+.fan-intro h1 {
+  font-size: clamp(46px, 15vw, 70px);
+  font-weight: 900;
+  letter-spacing: -0.08em;
+  line-height: 0.98;
+  text-shadow: 3px 4px 0 #0e0e0f;
+}
+
+.fan-intro p {
+  margin-top: 25px;
+  font-size: clamp(13px, 4vw, 16px);
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.fan-intro-burst,
+.fan-match-burst {
+  position: absolute;
+  pointer-events: none;
+}
+
+.fan-intro-burst {
+  top: 50%;
+  width: 85%;
+  height: 85%;
+}
+
+.fan-intro-burst-lg {
+  left: -19%;
+  color: color-mix(in srgb, var(--fan-lg) 62%, var(--fan-bg));
+  transform: translateY(-54%) rotate(-15deg);
+}
+
+.fan-intro-burst-doosan {
+  right: -23%;
+  color: color-mix(in srgb, var(--fan-doosan) 65%, var(--fan-bg));
+  transform: translateY(-45%) rotate(14deg);
+}
+
+.fan-team-heading {
+  font-size: clamp(19px, 5.5vw, 26px);
+  font-weight: 900;
+  letter-spacing: -0.055em;
+}
+
+.fan-team-button,
+.fan-choice {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid var(--fan-line);
+  border-radius: 19px;
+  padding: 12px 6px;
+  background: var(--fan-surface);
+  font-weight: 800;
+  text-align: center;
+}
+
+.fan-team-button {
+  min-height: 110px;
+  border-color: color-mix(in srgb, var(--fan-accent) 52%, var(--fan-line));
+  background: color-mix(in srgb, var(--fan-accent) 12%, var(--fan-surface));
+  font-size: clamp(13px, 4vw, 16px);
+}
+
+.fan-team-button:enabled:hover {
+  border-color: var(--fan-accent-text);
+  background: color-mix(in srgb, var(--fan-accent) 24%, var(--fan-surface));
+}
+
+.fan-team-mark,
+.fan-versus,
+.fan-points {
+  font-family: var(--font-fan-number), var(--font-geist-sans), sans-serif;
+  font-stretch: 125%;
+  font-weight: 900;
+}
+
+.fan-team-mark {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--fan-accent);
+  color: #fff;
+}
+
+.fan-team-mark[data-team="lg"] {
+  --fan-accent: var(--fan-lg);
+}
+
+.fan-header {
+  display: flex;
+  min-height: 60px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--fan-line);
+  padding: 4px 20px;
+}
+
+.fan-points {
+  border-radius: 99px;
+  padding: 5px 12px;
+  background: var(--fan-raised);
+  color: var(--fan-accent-text);
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.fan-profile {
+  border: 1px solid var(--fan-line);
+  border-radius: 16px;
+  padding: 2px 12px 2px 14px;
+  background: var(--fan-surface);
+}
+
+.fan-profile form {
+  margin: 0;
+  padding-bottom: 12px;
+}
+
+.fan-team-dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fan-accent-text);
+}
+
+.fan-quiet-button,
+.fan-save-button,
+.fan-input {
+  min-height: 44px;
+  border-radius: 9px;
+}
+
+.fan-quiet-button,
+.fan-save-button {
+  padding-inline: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.fan-quiet-button {
+  color: var(--fan-sub);
+  text-underline-offset: 4px;
+}
+
+.fan-quiet-button:hover {
+  color: var(--fan-text);
+  text-decoration: underline;
+}
+
+.fan-save-button {
+  padding-inline: 13px;
+  background: var(--fan-accent);
+  color: #fff;
+}
+
+.fan-input {
+  min-width: 96px;
+  flex: 1;
+  border: 1px solid #727278;
+  padding-inline: 12px;
+  background: var(--fan-bg);
+}
+
+.fan-match-card {
+  position: relative;
+  display: flex;
+  min-height: 192px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 16px;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 23px;
+  padding: 19px 17px;
+  background: color-mix(in srgb, var(--fan-accent) 61%, var(--fan-bg));
+}
+
+.fan-match-burst {
+  top: -27%;
+  right: -18%;
+  width: 82%;
+  height: 148%;
+  color: var(--fan-accent);
+  transform: rotate(13deg);
+}
+
+.fan-match-graphic {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fan-match-graphic .fan-team-mark {
+  border: 1px solid #ffffff70;
+}
+
+.fan-versus {
+  font-size: 13px;
+}
+
+.fan-match-label {
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fan-vote-heading {
+  margin-top: 4px;
+  font-size: clamp(24px, 7vw, 35px);
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  line-height: 1.22;
+}
+
+.fan-choice {
+  min-height: 85px;
+  font-size: 15px;
+}
+
+.fan-choice svg {
+  color: #82e3a7;
+}
+
+.fan-choice + .fan-choice svg {
+  color: #ff97a3;
+}
+
+.fan-choice:hover:enabled {
+  border-color: var(--fan-accent-text);
+  background: var(--fan-raised);
+}
+
+.fan-experience button:disabled {
+  opacity: 0.6;
+}
+
+.fan-experience .fan-choice[aria-pressed="true"] {
+  border-color: var(--fan-accent-text);
+  background: color-mix(in srgb, var(--fan-accent) 28%, var(--fan-surface));
+  opacity: 1;
+}
+
+.fan-status,
+.fan-error {
+  min-height: 1.25rem;
+  font-size: 13px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.fan-status,
+.fan-footer {
+  color: var(--fan-sub);
+}
+
+.fan-error {
+  color: #ff9da8;
+}
+
+.fan-footer {
+  border-top: 1px solid var(--fan-line);
+  padding-inline: 20px;
+}

@@ -16,14 +16,34 @@ import { normalizeNickname } from "@/lib/nickname";
 import { PlateReplay } from "./plate-replay";
 
 const teams = {
-  lg: { label: "LG 트윈스", mark: "LG", color: "bg-[#a61549]" },
-  doosan: { label: "두산 베어스", mark: "DB", color: "bg-[#192e5e]" },
+  lg: { label: "LG 트윈스", mark: "LG" },
+  doosan: { label: "두산 베어스", mark: "DB" },
 } as const;
 
 const choices = [
   { value: "safe", label: "출루한다" },
   { value: "out", label: "아웃된다" },
 ] satisfies { value: Choice; label: string }[];
+
+function Burst({ className = "" }: { className?: string }) {
+  return (
+    <svg aria-hidden="true" className={className} viewBox="0 0 310 317" preserveAspectRatio="none" fill="currentColor">
+      <path d="M 0 0
+        C 0 0 93.77 59.14 119.52 49.01 C 145.27 38.88 170.68 0 170.68 0
+        C 170.68 0 177.12 57.10 200.44 60.39 C 223.75 63.68 246.83 21.88 246.83 21.88
+        C 246.83 21.88 254 32.25 260.83 35.88 C 267.66 39.51 310 0 310 0
+        C 310 0 252.08 87.52 260.83 118.16 C 269.58 148.79 309.99 153.93 309.99 153.93
+        C 309.99 153.93 249.56 154.30 246.83 175.93 C 244.10 197.56 283.59 217.94 283.59 217.94
+        C 283.59 217.94 272.25 233.40 269.58 245 C 266.92 256.59 309.99 316.69 309.99 316.69
+        C 309.99 316.69 222.32 245 186.43 255.58 C 150.54 266.16 140.92 308.10 140.92 308.10
+        C 140.92 308.10 144.29 252.96 119.52 245 C 94.75 237.03 65.59 288.84 65.59 288.84
+        C 65.59 288.84 59.55 276.12 52.51 271.26 C 45.47 266.39 0 308.10 0 308.10
+        C 0 308.10 65.60 201.32 52.51 183.81 C 39.43 166.29 5.17 153.93 5.17 153.93
+        C 5.17 153.93 67.39 141.19 65.59 122.46 C 63.78 103.72 30.63 89.27 30.63 89.27
+        C 30.63 89.27 40.59 77.98 43.76 69.14 C 46.93 60.31 0 0 0 0 Z" />
+    </svg>
+  );
+}
 
 export function FanGame() {
   const [profile, setProfile] = useState<FanProfile | null>(null);
@@ -146,12 +166,12 @@ export function FanGame() {
   }
 
   return (
-    <>
-      <header className="flex min-h-14 items-center justify-between gap-3 border-b border-black/10 px-5 dark:border-white/15">
-        <span className="shrink-0 text-sm font-bold">야구 팬덤 대결</span>
-        {profile && (
+    <div className="fan-game" data-team={profile?.team}>
+      {profile && (
+        <header className="fan-header">
+          <span className="text-sm font-bold">야구 팬덤 대결</span>
           <div className="flex items-center gap-2">
-            <span className="rounded-full bg-neutral-100 px-3 py-1.5 text-sm font-bold tabular-nums dark:bg-neutral-800" aria-label={`내 포인트 ${profile.points}점`}>
+            <span className="fan-points" aria-label={`내 포인트 ${profile.points}점`}>
               {profile.points.toLocaleString("ko-KR")}P
             </span>
             <button
@@ -159,28 +179,28 @@ export function FanGame() {
               title="이 브라우저에서 새 참가자로 시작"
               disabled={pending !== null}
               onClick={resetParticipation}
-              className="min-h-11 shrink-0 rounded-md px-2 text-sm font-semibold underline-offset-4 hover:enabled:underline disabled:opacity-60"
+              className="fan-quiet-button"
             >
               {pending === "reset" ? "초기화 중…" : "초기화"}
             </button>
           </div>
-        )}
-      </header>
+        </header>
+      )}
 
       <main className="flex flex-1 flex-col gap-6 px-5 py-7">
         {profile ? (
           <>
-            {error?.field === "reset" && <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">{error.message}</p>}
-            <section aria-label="내 응원팀과 닉네임" className="border-b border-black/10 pb-4 dark:border-white/15">
+            {error?.field === "reset" && <p role="alert" className="fan-error">{error.message}</p>}
+            <section aria-label="내 응원팀과 닉네임" className="fan-profile">
               <div className="flex items-center justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                  <span className={`size-2 shrink-0 rounded-full ${teams[profile.team].color}`} aria-hidden="true" />
+                  <span className="fan-team-dot" aria-hidden="true" />
                   {teams[profile.team].label}
                 </span>
                 <button
                   ref={nicknameButton}
                   type="button"
-                  className="min-h-11 min-w-0 max-w-[55%] truncate rounded-md px-2 text-right text-sm font-semibold underline decoration-black/25 underline-offset-4 hover:decoration-current dark:decoration-white/45"
+                  className="fan-quiet-button min-w-0 max-w-[55%] truncate text-right"
                   aria-label={profile.nickname ? `닉네임 변경 (${profile.nickname})` : "닉네임 설정"}
                   aria-expanded={editingNickname}
                   aria-controls={editingNickname ? "nickname-form" : undefined}
@@ -200,7 +220,7 @@ export function FanGame() {
                 </button>
               </div>
               {editingNickname && (
-                <form id="nickname-form" onSubmit={submitNickname} className="mt-3 space-y-2">
+                <form id="nickname-form" onSubmit={submitNickname} className="space-y-2">
                   <label htmlFor="nickname" className="block text-sm font-semibold">닉네임</label>
                   <div className="flex flex-wrap gap-2">
                     <input
@@ -215,24 +235,34 @@ export function FanGame() {
                       placeholder="2~16자"
                       aria-describedby={error?.field === "nickname" ? "nickname-error" : undefined}
                       disabled={pending === "nickname"}
-                      className="min-h-11 min-w-24 flex-1 rounded-lg border border-neutral-400 px-3 dark:border-neutral-600"
+                      className="fan-input"
                     />
-                    <button type="submit" disabled={pending !== null} className="min-h-11 rounded-lg bg-foreground px-4 text-sm font-semibold text-background disabled:opacity-60">
+                    <button type="submit" disabled={pending !== null} className="fan-save-button">
                       {pending === "nickname" ? "저장 중" : "저장"}
                     </button>
-                    <button type="button" disabled={pending === "nickname"} onClick={closeNickname} className="min-h-11 rounded-lg px-2 text-sm font-semibold underline-offset-4 hover:underline disabled:opacity-60">
+                    <button type="button" disabled={pending === "nickname"} onClick={closeNickname} className="fan-quiet-button">
                       취소
                     </button>
                   </div>
-                  {error?.field === "nickname" && <p id="nickname-error" role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">{error.message}</p>}
+                  {error?.field === "nickname" && <p id="nickname-error" role="alert" className="fan-error">{error.message}</p>}
                 </form>
               )}
             </section>
 
-            <section aria-labelledby="vote-heading" className="space-y-4">
-              <h1 id="vote-heading" ref={voteHeading} tabIndex={-1} className="text-2xl font-bold tracking-tight">이번 타자, 출루할까?</h1>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">LG 트윈스 vs 두산 베어스 · 데모 투표</p>
-              <div className="grid grid-cols-2 gap-2">
+            <section aria-labelledby="vote-heading" className="space-y-3">
+              <div className="fan-match-card">
+                <Burst className="fan-match-burst" />
+                <div className="fan-match-graphic" aria-hidden="true">
+                  <span className="fan-team-mark" data-team="lg">LG</span>
+                  <span className="fan-versus">VS</span>
+                  <span className="fan-team-mark" data-team="doosan">DB</span>
+                </div>
+                <div className="relative">
+                  <p className="fan-match-label">LG 트윈스 vs 두산 베어스 · 데모 투표</p>
+                  <h1 id="vote-heading" ref={voteHeading} tabIndex={-1} className="fan-vote-heading">이번 타자, 출루할까?</h1>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
                 {choices.map(({ value, label }) => (
                   <button
                     key={value}
@@ -240,45 +270,55 @@ export function FanGame() {
                     disabled={pending !== null || vote !== null}
                     aria-pressed={vote === value}
                     onClick={() => submitVote(value)}
-                    className="min-h-14 rounded-xl border border-neutral-400 px-2 text-base font-bold hover:enabled:bg-neutral-100 disabled:opacity-65 aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:opacity-100 dark:border-neutral-600 dark:hover:enabled:bg-neutral-800"
+                    className="fan-choice"
                   >
+                    <svg aria-hidden="true" viewBox="0 0 32 32" width="32" height="32" fill="none">
+                      {value === "safe" ? (
+                        <path d="m7 16 6 6L25 10" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+                      ) : (
+                        <path d="m9 9 14 14m0-14L9 23" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
+                      )}
+                    </svg>
                     {label}
                   </button>
                 ))}
               </div>
-              <p role="status" className="min-h-5 text-sm font-medium">
+              <p role="status" className="fan-status">
                 {vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}
               </p>
-              {error?.field === "vote" && <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">{error.message}</p>}
+              {error?.field === "vote" && <p role="alert" className="fan-error">{error.message}</p>}
             </section>
             <PlateReplay />
           </>
         ) : (
-          <section aria-labelledby="team-heading" className="space-y-5">
-            <div className="space-y-2">
-              <h1 id="team-heading" ref={teamHeading} tabIndex={-1} className="text-2xl font-bold tracking-tight">어느 팀을 응원하세요?</h1>
-              <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">팀을 고르면 바로 투표에 참여할 수 있어요.</p>
+          <section aria-labelledby="team-heading" className="fan-team-select">
+            <div className="fan-intro">
+              <Burst className="fan-intro-burst fan-intro-burst-lg" />
+              <Burst className="fan-intro-burst fan-intro-burst-doosan" />
+              <div className="fan-intro-copy">
+                <h1>야구 팬덤<br />대결</h1>
+                <p>경기는 선수들이, 신경전은 팬들이!</p>
+              </div>
             </div>
-            <div className="divide-y divide-black/10 border-y border-black/10 dark:divide-white/15 dark:border-white/15">
+            <h2 id="team-heading" ref={teamHeading} tabIndex={-1} className="fan-team-heading">어느 팀을 응원하세요?</h2>
+            <div className="grid grid-cols-2 gap-3">
               {(Object.keys(teams) as Team[]).map((team) => (
                 <button
                   key={team}
                   type="button"
                   disabled={pending !== null || restoreError || !isSupabaseConfigured}
                   onClick={() => chooseTeam(team)}
-                  className="flex min-h-16 w-full items-center gap-3 px-1 text-left font-semibold hover:enabled:bg-neutral-100 disabled:opacity-65 dark:hover:enabled:bg-neutral-900"
+                  className="fan-team-button"
+                  data-team={team}
                 >
-                  <span className={`grid size-9 shrink-0 place-items-center rounded-lg text-xs font-bold text-white ${teams[team].color}`} aria-hidden="true">{teams[team].mark}</span>
-                  <span className="flex-1">{teams[team].label}</span>
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" className="shrink-0">
-                    <path d="m6 4 4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
+                  <span className="fan-team-mark" aria-hidden="true">{teams[team].mark}</span>
+                  <span>{teams[team].label}</span>
                 </button>
               ))}
             </div>
-            {pending && <p role="status" className="text-sm">{pending === "restore" ? "참가 정보를 확인하고 있어요." : "입장하고 있어요."}</p>}
-            {!isSupabaseConfigured && <p role="status" className="text-sm">서버 연결 설정이 필요합니다.</p>}
-            {error?.field === "team" && <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">{error.message}</p>}
+            {pending && <p role="status" className="fan-status">{pending === "restore" ? "참가 정보를 확인하고 있어요." : "입장하고 있어요."}</p>}
+            {!isSupabaseConfigured && <p role="status" className="fan-status">서버 연결 설정이 필요합니다.</p>}
+            {error?.field === "team" && <p role="alert" className="fan-error">{error.message}</p>}
             {restoreError && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <p role="alert">참가 정보를 불러오지 못했습니다.</p>
@@ -293,6 +333,6 @@ export function FanGame() {
         )}
 
       </main>
-    </>
+    </div>
   );
 }
