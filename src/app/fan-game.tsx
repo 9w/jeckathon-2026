@@ -16,6 +16,8 @@ import {
 } from "@/lib/fan-session";
 import { normalizeNickname } from "@/lib/nickname";
 import { PlateReplay } from "./plate-replay";
+import { ReplayControl } from "./replay-control";
+import { formatElapsed } from "@/lib/replay/clock";
 
 const teams = {
   lg: { label: "LG 트윈스", mark: "LG" },
@@ -29,6 +31,7 @@ const choices = [
 
 const roomMessages = {
   waiting: "경기 시작을 기다리고 있어요.",
+  paused: "경기가 일시정지됐어요.",
   open: "",
   locked: "투표가 마감됐어요. 결과를 기다리고 있어요.",
   revealed: "다음 타석을 기다리고 있어요.",
@@ -59,6 +62,7 @@ export function FanGame() {
   const [profile, setProfile] = useState<FanProfile | null>(null);
   const [room, setRoom] = useState<SharedReplay | null | "invite-required" | undefined>(undefined);
   const [roomError, setRoomError] = useState(false);
+  const [roomRefresh, setRoomRefresh] = useState(0);
   const [pending, setPending] = useState<"restore" | Team | "nickname" | "vote" | "reset" | null>(
     isSupabaseConfigured ? "restore" : null,
   );
@@ -121,7 +125,7 @@ export function FanGame() {
       active = false;
       clearTimeout(timer);
     };
-  }, [playerId, pending]);
+  }, [playerId, pending, roomRefresh]);
 
   useEffect(() => {
     if (playerId) {
@@ -317,6 +321,7 @@ export function FanGame() {
                   <p className="fan-match-label">{sharedRoom ? `${sharedRoom.date} · ${sharedRoom.away} vs ${sharedRoom.home}` : "LG 트윈스 vs 두산 베어스"}</p>
                   <h1 id="vote-heading" ref={voteHeading} tabIndex={-1} className="fan-vote-heading">이번 타자, 출루할까?</h1>
                   {sharedRoom?.batter && <p className="mt-2 text-sm font-bold">{sharedRoom.inning}회 {sharedRoom.half === "top" ? "초" : "말"} · {sharedRoom.batter}</p>}
+                  {sharedRoom && <p className="mt-1 text-sm tabular-nums">경기 경과 {formatElapsed(sharedRoom.elapsed)}</p>}
                   {!roomError && sharedRoom?.phase === "open" && <p className="mt-1 text-sm tabular-nums">마감까지 {sharedRoom.secondsLeft}초</p>}
                   {sharedRoom?.result && <p className="mt-2 text-sm font-bold">타석 결과 · {sharedRoom.result}</p>}
                 </div>
@@ -349,6 +354,7 @@ export function FanGame() {
                 {error?.field === "vote" && <p role="alert" className="fan-error col-start-1 row-start-1">{error.message}</p>}
               </div>
             </section>
+            {sharedRoom && <ReplayControl key={sharedRoom.roomId} room={sharedRoom} refresh={() => setRoomRefresh((count) => count + 1)} />}
             <PlateReplay />
           </>
         ) : (

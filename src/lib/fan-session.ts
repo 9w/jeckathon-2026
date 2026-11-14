@@ -7,7 +7,11 @@ export type SharedReplay = {
   date: string;
   away: string;
   home: string;
-  phase: "waiting" | "open" | "locked" | "revealed" | "finished";
+  phase: "waiting" | "paused" | "open" | "locked" | "revealed" | "finished";
+  elapsed: number;
+  duration: number;
+  playing: boolean;
+  canControl: boolean;
   roundId: string | null;
   inning: number | null;
   half: "top" | "bottom" | null;
@@ -52,6 +56,17 @@ export async function loadSharedReplay(roomId: string): Promise<SharedReplay | n
   const { data, error } = await supabase().rpc("get_replay_room", { p_room: roomId });
   if (error) throw error;
   return data as unknown as SharedReplay | null;
+}
+
+export async function claimReplayOperator(code: string) {
+  const { data, error } = await supabase().rpc("claim_replay_operator", { p_code: code });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function controlReplay(roomId: string, action: "play" | "pause" | "seek", second?: number) {
+  const { error } = await supabase().rpc("control_replay", { p_room: roomId, p_action: action, p_second: second ?? null });
+  if (error) throw error;
 }
 
 export async function restoreFan() {
