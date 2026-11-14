@@ -2,14 +2,16 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
-  castVote,
+  castReplayVote,
   isSupabaseConfigured,
   joinFan,
+  loadSharedReplay,
   resetFanSession,
   restoreFan,
   saveNickname,
   type Choice,
   type FanProfile,
+  type SharedReplay,
   type Team,
 } from "@/lib/fan-session";
 import { normalizeNickname } from "@/lib/nickname";
@@ -24,6 +26,14 @@ const choices = [
   { value: "safe", label: "출루한다" },
   { value: "out", label: "아웃된다" },
 ] satisfies { value: Choice; label: string }[];
+
+const roomMessages = {
+  waiting: "경기 시작을 기다리고 있어요.",
+  open: "",
+  locked: "투표가 마감됐어요. 결과를 기다리고 있어요.",
+  revealed: "다음 타석을 기다리고 있어요.",
+  finished: "경기가 끝났어요.",
+};
 
 function Burst({ className = "" }: { className?: string }) {
   return (
@@ -47,7 +57,8 @@ function Burst({ className = "" }: { className?: string }) {
 
 export function FanGame() {
   const [profile, setProfile] = useState<FanProfile | null>(null);
-  const [vote, setVote] = useState<Choice | null>(null);
+  const [room, setRoom] = useState<SharedReplay | null | "invite-required" | undefined>(undefined);
+  const [roomError, setRoomError] = useState(false);
   const [pending, setPending] = useState<"restore" | Team | "nickname" | "vote" | "reset" | null>(
     isSupabaseConfigured ? "restore" : null,
   );
@@ -68,8 +79,7 @@ export function FanGame() {
     restoreFan()
       .then((current) => {
         if (!active || !current) return;
-        setProfile(current.profile);
-        setVote(current.vote);
+        setProfile(current);
       })
       .catch(() => {
         if (active) setRestoreError(true);
@@ -82,6 +92,37 @@ export function FanGame() {
   }, [restoreAttempt]);
 
   const playerId = profile?.id;
+  useEffect(() => {
+    if (!playerId || pending === "vote" || pending === "reset") return;
+    const roomId = new URLSearchParams(window.location.search).get("room");
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+
+    async function poll() {
+      try {
+        if (!roomId || !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(roomId)) {
+          setRoom("invite-required");
+          return;
+        }
+        const state = await loadSharedReplay(roomId);
+        if (active) {
+          setRoom(state);
+          setRoomError(false);
+        }
+      } catch {
+        if (active) setRoomError(true);
+      } finally {
+        if (active && roomId) timer = setTimeout(poll, 1000);
+      }
+    }
+
+    timer = setTimeout(poll, 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [playerId, pending]);
+
   useEffect(() => {
     if (playerId) {
       voteHeading.current?.focus();
@@ -97,8 +138,7 @@ export function FanGame() {
     setError(null);
     try {
       const joined = await joinFan(team);
-      setProfile(joined.profile);
-      setVote(joined.vote);
+      setProfile(joined);
     } catch {
       setError({ field: "team", message: "입장하지 못했습니다. 연결을 확인하고 팀을 다시 선택해 주세요." });
     } finally {
@@ -135,11 +175,16 @@ export function FanGame() {
   }
 
   async function submitVote(choice: Choice) {
-    if (pending || !profile || vote) return;
+    if (pending || !room || room === "invite-required" || !room.roundId || !canVote) return;
+    const { roomId, roundId } = room;
     setPending("vote");
     setError(null);
     try {
-      setVote(await castVote(profile.id, choice));
+      const saved = await castReplayVote(roomId, roundId, choice);
+      setRoom((current) => {
+        if (!current || current === "invite-required" || current.roomId !== roomId || current.roundId !== roundId) return current;
+        return saved ? { ...current, myVote: saved } : { ...current, phase: "locked", secondsLeft: null };
+      });
     } catch {
       setError({ field: "vote", message: "투표를 저장하지 못했습니다. 다시 시도해 주세요." });
     } finally {
@@ -155,7 +200,8 @@ export function FanGame() {
       await resetFanSession();
       returningToTeam.current = true;
       setProfile(null);
-      setVote(null);
+      setRoom(undefined);
+      setRoomError(false);
       setNickname("");
       setEditingNickname(false);
     } catch {
@@ -164,6 +210,15 @@ export function FanGame() {
       setPending(null);
     }
   }
+
+  const sharedRoom = room === "invite-required" ? null : room;
+  const vote = sharedRoom?.myVote;
+  const canVote = sharedRoom?.phase === "open" && !roomError && !vote;
+  const roomStatus = roomError ? "경기방 연결을 다시 확인하고 있어요."
+    : room === undefined ? "경기방을 연결하고 있어요."
+    : room === "invite-required" ? "내부 경기방 초대 링크로 접속해 주세요."
+    : room === null ? "열린 경기방이 없어요."
+    : roomMessages[room.phase];
 
   return (
     <div className="fan-game" data-team={profile?.team}>
@@ -259,8 +314,11 @@ export function FanGame() {
                   <span className="fan-team-mark" data-team="doosan">DB</span>
                 </div>
                 <div className="relative">
-                  <p className="fan-match-label">LG 트윈스 vs 두산 베어스 · 데모 투표</p>
+                  <p className="fan-match-label">{sharedRoom ? `${sharedRoom.date} · ${sharedRoom.away} vs ${sharedRoom.home}` : "LG 트윈스 vs 두산 베어스"}</p>
                   <h1 id="vote-heading" ref={voteHeading} tabIndex={-1} className="fan-vote-heading">이번 타자, 출루할까?</h1>
+                  {sharedRoom?.batter && <p className="mt-2 text-sm font-bold">{sharedRoom.inning}회 {sharedRoom.half === "top" ? "초" : "말"} · {sharedRoom.batter}</p>}
+                  {!roomError && sharedRoom?.phase === "open" && <p className="mt-1 text-sm tabular-nums">마감까지 {sharedRoom.secondsLeft}초</p>}
+                  {sharedRoom?.result && <p className="mt-2 text-sm font-bold">타석 결과 · {sharedRoom.result}</p>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -268,7 +326,7 @@ export function FanGame() {
                   <button
                     key={value}
                     type="button"
-                    disabled={pending !== null || vote !== null}
+                    disabled={pending !== null || !canVote}
                     aria-pressed={vote === value}
                     onClick={() => submitVote(value)}
                     className="fan-choice"
@@ -286,7 +344,7 @@ export function FanGame() {
               </div>
               <div className="grid min-h-5">
                 <p role="status" className="fan-status col-start-1 row-start-1">
-                  {vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}
+                  {error?.field === "vote" ? "" : pending === "vote" ? "투표 저장 중…" : vote ? `투표가 저장됐어요. ${roomStatus}`.trim() : roomStatus}
                 </p>
                 {error?.field === "vote" && <p role="alert" className="fan-error col-start-1 row-start-1">{error.message}</p>}
               </div>

@@ -45,6 +45,31 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 
 파일 선택 시 브라우저 메모리에서 읽으며 페이지를 새로 열면 다시 선택해야 합니다. 로컬 개발 서버는 `.local-replay/lg-doosan-20260903.json`이 있으면 자동으로 읽습니다. 구간은 완료된 66타석과 1회초 주루사로 중단된 문보경 타석을 포함합니다. 첫 투구 시각은 보정한 Sportradar 기록 기준입니다. [무료 체험 조건](https://developer.sportradar.com/sportradar-updates/page/terms-and-conditions)에 따라 데이터 파일은 Git과 Vercel 배포에서 제외합니다.
 
+### 여러 참가자가 함께 보는 경기방
+
+Supabase에 `20261114170000_shared_replay.sql` 마이그레이션을 적용합니다. 경기와 타석 기록은 관리자 권한으로 등록하고, 참가 화면은 로그인 화면 없이 기존 팀 선택과 익명 세션을 사용합니다. 모든 참가자는 같은 경기방 ID, 타석, 서버 마감 시각을 기준으로 투표합니다. 하단의 개인 리플레이 조작은 공동 투표에 영향을 주지 않습니다.
+
+내부 경연에 사용하는 9월 3일 경기 JSON으로 등록용 SQL을 생성합니다. 생성된 SQL과 경기 데이터는 저장소에 추가하지 않습니다.
+
+```powershell
+node scripts/prepare-shared-replay.mts <경기기록.json>
+```
+
+생성된 SQL을 Supabase SQL Editor에서 실행한 후, 아래 SQL로 30초 뒤 시작하는 경기방을 엽니다. 다시 시작할 때는 같은 SQL을 실행하면 새 경기방의 투표가 열립니다.
+
+```sql
+begin;
+update public.replay_rooms set active = false where active;
+insert into public.replay_rooms (game_id, starts_at)
+values ('20260903LGOB0', statement_timestamp() + interval '30 seconds')
+returning id;
+commit;
+```
+
+반환된 ID를 내부 앱의 `/?room=<ID>`에 넣어 경연 참가자에게만 공유합니다. 이전 경기방 링크는 새 방을 열면 비활성화됩니다.
+
+원본 경기 시각 간격을 사용합니다. 첫 투구에서 최대 12초 동안 투표를 받고, 빠른 결과는 공개 1초 전에 마감합니다. 판정이나 투표 시간이 없는 타석은 관전할 수 있습니다. 시작 또는 결과 시각이 빠진 타석은 경기방에서 건너뜁니다.
+
 ## 모바일 웹 셋팅
 
 - `src/app/layout.tsx` — viewport(`device-width`, `viewport-fit=cover`), theme-color, iOS 홈 화면 앱 메타, `max-w-md` 모바일 컨테이너
