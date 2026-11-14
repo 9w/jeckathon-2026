@@ -1,9 +1,10 @@
 import type { NextConfig } from "next";
 
-// The public Vercel deployment uses the demo database until its environment
-// variables are set. Local development and previews use their own configuration.
+// The competition preview uses the same database as the existing Vercel app.
+// Explicit Supabase environment values take priority.
 const usePublicDemoSupabase =
-  process.env.VERCEL_ENV === "production" &&
+  (process.env.VERCEL_ENV === "production" ||
+    (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "shared-replay-voting")) &&
   !process.env.NEXT_PUBLIC_SUPABASE_URL &&
   !process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
