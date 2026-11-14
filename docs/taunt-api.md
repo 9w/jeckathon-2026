@@ -16,7 +16,6 @@
   - [GET /api/taunts/received](#get-apitauntsreceived) 받은 놀림 목록
   - [POST /api/taunts/received/read](#post-apitauntsreceivedread) 받은 놀림 확인 처리
   - [POST /api/fans/heartbeat](#post-apifansheartbeat) 활동 신호
-  - [POST /api/fans/demo-points](#post-apifansdemo-points) 데모용 포인트 지급
 - [오류](#오류)
 - [규칙](#규칙)
 - [프론트에서 사용하기](#프론트에서-사용하기)
@@ -32,7 +31,7 @@ Supabase 프로젝트에 마이그레이션을 순서대로 적용해야 한다(
 3. `supabase/migrations/20261114160000_nickname_required_unique.sql`
 4. `supabase/migrations/20261114170000_fan_heartbeat.sql`
 5. `supabase/migrations/20261114180000_random_taunt.sql`
-6. `supabase/migrations/20261114190000_design_cards_demo_points.sql` (시안 카드·문구, 입장 300P, 데모 포인트)
+6. `supabase/migrations/20261114190000_design_cards.sql` (시안 카드·문구, 입장 300P)
 
 ## 인증
 
@@ -306,29 +305,6 @@ Authorization: Bearer <access_token>
 
 응원팀을 고르기 전이면 `403 forbidden`. 직접 호출하기보다 [`startHeartbeat()`](#활동-신호-보내기)를 쓴다.
 
-### POST /api/fans/demo-points
-
-**해커톤 데모 전용.** 예측 판정을 아직 화면이 하므로, 예측 보상과 데모 충전을 서버 포인트에 기록한다. 판정을 화면이 하므로 조작할 수 있다. 정식 판정(서버)이 생기면 제거한다.
-
-**요청**
-
-```json
-{ "key": "bat:k3j9x2:0", "amount": 100 }
-```
-
-| 필드 | 타입 | 필수 | 설명 |
-| --- | --- | --- | --- |
-| `key` | string (1~64자) | O | 지급 키. 같은 키로는 한 번만 지급(예: `bat:<경기ID>:<타석>`) |
-| `amount` | `100` \| `300` | O | 예측 보상 100, 데모 충전 300 |
-
-**응답 200**
-
-```json
-{ "points": 400 }
-```
-
-지급 후 잔액. 이미 쓴 키면 지급하지 않고 현재 잔액을 돌려준다.
-
 ## 오류
 
 오류 응답 형식
@@ -386,7 +362,6 @@ Authorization: Bearer <access_token>
 | `sendTaunt(receiverId, cardId, phraseId?)` | `POST /api/taunts` |
 | `sendRandomTaunt(cardId?, phraseId?)` | `POST /api/taunts/random` |
 | `fetchSentTaunt(id)` | `GET /api/taunts/{id}` |
-| `claimDemoPoints(key, amount)` (`src/lib/demo-points.ts`) | `POST /api/fans/demo-points` |
 | `joinFanWithNickname(team, nickname)` (`src/lib/fan-session.ts`) | 익명 로그인 + `join_fan(p_team, p_nickname)`. 닉네임 중복이면 `NicknameTakenError` |
 | `fetchReceivedTaunts(unreadOnly?)` | `GET /api/taunts/received` |
 | `markTauntsRead(ids?)` | `POST /api/taunts/received/read` |
@@ -470,18 +445,16 @@ src/
 │     ├─ route.ts              GET    /api/taunts/received
 │     └─ read/route.ts         POST   /api/taunts/received/read
 ├─ app/api/fans/
-│  ├─ heartbeat/route.ts       POST   /api/fans/heartbeat
-│  └─ demo-points/route.ts     POST   /api/fans/demo-points (데모 전용)
+│  └─ heartbeat/route.ts       POST   /api/fans/heartbeat
 ├─ server/                     서버 전용
 │  ├─ supabase.ts              요청자 토큰으로 Supabase 클라이언트 생성
 │  ├─ http.ts                  DB 오류 코드 → HTTP 응답 변환
 │  ├─ taunts.ts                RPC 호출 + 응답 변환(snake_case → camelCase)
-│  └─ fans.ts                  활동 시각 갱신, 데모 포인트
+│  └─ fans.ts                  활동 시각 갱신
 └─ lib/
    ├─ api-request.ts           토큰 첨부·오류 변환 공용 fetch
    ├─ taunt-api.ts             놀리기 클라이언트 함수
    ├─ fan-heartbeat.ts         활동 신호 클라이언트 함수
-   ├─ demo-points.ts           데모 포인트 클라이언트 함수
    └─ taunt-types.ts           공용 타입
 
 supabase/migrations/
@@ -489,7 +462,7 @@ supabase/migrations/
 ├─ 20261114160000_nickname_required_unique.sql   닉네임 중복 금지·필수
 ├─ 20261114170000_fan_heartbeat.sql              활동 신호 RPC
 ├─ 20261114180000_random_taunt.sql               불특정 1명 놀리기 RPC
-└─ 20261114190000_design_cards_demo_points.sql   시안 카드·문구, 입장 300P, 데모 포인트
+└─ 20261114190000_design_cards.sql              시안 카드·문구, 입장 300P
 ```
 
 DB 객체
@@ -498,7 +471,6 @@ DB 객체
 | --- | --- | --- |
 | `taunt_cards` | 테이블 | 카드 목록(`active`인 것만 사용). 로그인 사용자 조회 가능 |
 | `taunt_phrases` | 테이블 | 고를 수 있는 문구. `taunts.phrase_id`로 참조 |
-| `demo_point_claims` | 테이블 | 데모 포인트 지급 기록(키 중복 방지). 직접 접근 불가 |
 | `taunts` | 테이블 | 보낸 놀림. 본인이 보내거나 받은 것만 조회, 직접 쓰기 불가 |
 | `fan_profiles.last_active_at` | 컬럼 | 마지막 활동 시각 |
 | `list_taunt_targets()` | RPC | 대상 목록 |
@@ -507,6 +479,5 @@ DB 객체
 | `list_received_taunts(p_unread_only, p_limit)` | RPC | 받은 놀림 목록 |
 | `mark_taunts_read(p_ids)` | RPC | 확인 처리 |
 | `touch_fan()` | RPC | 활동 시각 갱신(heartbeat) |
-| `claim_demo_points(p_key, p_amount)` | RPC | 데모 포인트 지급(데모 전용) |
 
 DB 함수 오류 코드: `JK001` 포인트 부족, `JK002` 쿨타임, `JK003` 수신 한도, `JK004` 대상 비활성, `JK005` 닉네임 미설정, `JK006` 무작위 대상 없음 (`src/server/http.ts`에서 HTTP로 변환)
