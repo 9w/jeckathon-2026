@@ -29,6 +29,13 @@ async function getUserId() {
   return data.session?.user.id;
 }
 
+/** 서버 API 호출용 액세스 토큰. 게스트 세션이 없으면 null. */
+export async function getAccessToken() {
+  const { data, error } = await supabase().auth.getSession();
+  if (error) throw error;
+  return data.session?.access_token ?? null;
+}
+
 export async function resetFanSession() {
   const { error } = await supabase().auth.signOut({ scope: "local" });
   // Local sign-out can clear the session even when revocation fails.
