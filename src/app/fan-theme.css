@@ -416,7 +416,7 @@ body:has(.fan-experience) {
 
 .ipyagu-welcome .fan-welcome-copy { top: 30.3%; }
 .ipyagu-welcome .fan-welcome-copy img { margin-inline: auto; }
-.ipyagu-welcome .fan-stage-bottom { padding-bottom: 50px; }
+.ipyagu-welcome .fan-stage-bottom { position: absolute; inset: auto 16px 50px; margin: 0; padding: 0; }
 .ipyagu-welcome .fan-stage-button { background: #111; color: white; }
 .ipyagu-welcome .fan-status { color: #44444c; }
 .ipyagu-welcome .fan-error { color: #a90c25; }
@@ -445,6 +445,7 @@ body:has(.fan-experience) {
 }
 .ipyagu-match .fan-lobby-score > span:last-child { justify-items: end; }
 .ipyagu-match .fan-lobby-score img { height: 44px; object-fit: contain; }
+.ipyagu-match .fan-lobby-score strong { font-size: 16px; }
 .ipyagu-match .fan-replay-number {
   font-size: clamp(44px, 15vw, 78px);
   letter-spacing: -.035em;
@@ -497,3 +498,11 @@ body:has(.fan-experience) {
 .ipyagu-shop-entry img { width: clamp(38px, 14vw, 60px); height: 56px; padding: 4px; border-radius: 14px; background: var(--fan-raised); object-fit: contain; }
 .ipyagu-shop-entry div > span { margin-inline-start: auto; padding: 8px 10px; border-radius: 999px; background: var(--fan-text); color: var(--fan-bg); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .ipyagu-collection-error { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 16px; }
+.ipyagu-vote-total { display: grid; gap: 4px; padding: 12px 16px; }
+.ipyagu-vote-total > div:first-child { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ipyagu-vote-total span { color: var(--fan-sub); font-size: 13px; }
+.ipyagu-vote-total strong { font-size: 18px; }
+.ipyagu-vote-result { display: grid; justify-items: center; gap: 8px; padding: 16px; text-align: center; }
+.ipyagu-vote-result h2 { font-size: 20px; font-weight: 800; }
+.ipyagu-vote-result strong { color: var(--fan-accent-text); }
+.ipyagu-vote-result p { color: var(--fan-sub); font-size: 13px; }

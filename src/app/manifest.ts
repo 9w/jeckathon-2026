@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Jeckathon 2026",
-    short_name: "Jeckathon",
-    description: "Jeckathon 2026 모바일 웹",
+    name: "입야구 · 야구 팬덤 대결",
+    short_name: "입야구",
+    description: "응원팀을 고르고 타석을 예측하는 야구 팬덤 대결",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

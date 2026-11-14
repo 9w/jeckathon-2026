@@ -29,6 +29,7 @@ export function makeSharedReplay(game: ReplayGame) {
       close_second: appearance.choice !== null && closing > first ? closing - start : null,
       reveal_second: result - start,
       result: appearance.result,
+      vote_answer: appearance.choice,
     });
   }
   if (!rounds.some((round) => round.close_second !== null)) throw new Error("투표 가능한 타석이 없습니다.");

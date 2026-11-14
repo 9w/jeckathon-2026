@@ -13,12 +13,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Jeckathon 2026",
-  description: "Jeckathon 2026 모바일 웹",
-  applicationName: "Jeckathon 2026",
+  title: "입야구 · 야구 팬덤 대결",
+  description: "응원팀을 고르고 타석을 예측하는 야구 팬덤 대결",
+  applicationName: "입야구",
   appleWebApp: {
     capable: true,
-    title: "Jeckathon",
+    title: "입야구",
     statusBarStyle: "default",
   },
   formatDetection: { telephone: false },

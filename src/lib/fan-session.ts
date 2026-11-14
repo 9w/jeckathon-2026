@@ -144,6 +144,15 @@ export async function getFanTaunt(id: string): Promise<FanTaunt | null> {
 
 export type FanCardCollection = { team: Team; ownedCardIds: string[]; points: number };
 export type FanProfileStats = { hits: number; tries: number; sent: number };
+export type FanReplayRewards = {
+  points: number;
+  earned: number;
+  roundId: string | null;
+  roundReward: number | null;
+  voteCount?: number;
+  safeVotes?: number | null;
+  outVotes?: number | null;
+};
 
 export async function loadFanCardCollection(): Promise<FanCardCollection> {
   const { data, error } = await supabase().rpc("get_fan_card_collection");
@@ -167,6 +176,12 @@ export async function loadFanProfileStats(): Promise<FanProfileStats> {
 
 export async function loadFanCampPresence(): Promise<Record<Team, number>> {
   const { data, error } = await supabase().rpc("get_fan_camp_presence");
+  if (error) throw error;
+  return data;
+}
+
+export async function loadFanReplayRewards(roomId: string): Promise<FanReplayRewards | null> {
+  const { data, error } = await supabase().rpc("get_fan_replay_rewards", { p_room: roomId });
   if (error) throw error;
   return data;
 }

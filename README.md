@@ -35,7 +35,7 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 ```
 
-팀을 선택하면 게스트 세션이 생성됩니다. 같은 브라우저에서 응원팀과 닉네임, 포인트 잔액 및 데모 투표를 이어서 볼 수 있습니다. 닉네임 검증 테스트는 `node --test tests/nickname.test.mjs`로 실행합니다.
+닉네임과 응원팀을 저장하면 게스트 세션으로 참가합니다. 같은 브라우저에서 프로필 사진과 닉네임, 포인트 잔액, 구매한 카드를 이어서 볼 수 있습니다. 사진은 이 기기에 저장합니다. 닉네임 검증 테스트는 `node --test tests/nickname.test.mjs`로 실행합니다.
 
 ### 개발용 개인 리플레이
 
@@ -45,7 +45,9 @@ NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=<publishable-key>
 
 ### 도발 카드와 포인트
 
-Supabase에 기존 참가 마이그레이션 후 `20261114173000_fan_taunts.sql` 및 `20261114173500_fan_point_predictions.sql`을 순서대로 적용합니다. 경기방의 **포인트 예측**은 연습 타석이며, 정답을 맞히면 서버가 100P를 한 번 지급합니다. 도발 카드는 전송에 성공하면 100P를 차감합니다. 카드가 도착하면 경기방의 알림에서 열고, **반격 준비하기**로 발신자에게 답할 수 있습니다. 닫은 카드도 **내 기록 → 받은 도발**에서 다시 열 수 있습니다.
+Supabase에 선행 마이그레이션과 함께 `20261114191000_fan_character_cards.sql`, `20261114193000_replay_point_awards.sql`을 버전 순서대로 적용합니다. 적용 후 제출한 공동 경기방 예측이 적중하면 결과 공개 시 경기·타석당 한 번 100P를 지급합니다.
+
+응원팀 기본 카드 두 장이 제공됩니다. 추가 카드는 한 장당 100P이며, 팀 팩을 구매하면 남은 카드 개별 가격 합계에서 100P를 할인합니다. 카드 전송 비용은 100P입니다. 경기방 알림과 **내 프로필 → 최근 받은 도발 → 반격**에서 원래 발신자에게 반격할 수 있습니다.
 
 파일 선택 시 브라우저 메모리에서 읽으며 페이지를 새로 열면 다시 선택해야 합니다. 로컬 개발 서버는 `.local-replay/lg-doosan-20260903.json`이 있으면 자동으로 읽습니다. 구간은 완료된 66타석과 1회초 주루사로 중단된 문보경 타석을 포함합니다. 첫 투구 시각은 보정한 Sportradar 기록 기준입니다. [무료 체험 조건](https://developer.sportradar.com/sportradar-updates/page/terms-and-conditions)에 따라 데이터 파일은 Git과 Vercel 배포에서 제외합니다.
 

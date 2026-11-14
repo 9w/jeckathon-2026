@@ -16,29 +16,33 @@ export function useFanCollection(playerId: string | undefined, onPoints: (points
   const [failure, setFailure] = useState(false);
   const revision = useRef(0);
   const requestIds = useRef(new Map<string, string>());
+  const purchaseInFlight = useRef(false);
   const player = useRef(playerId);
   useEffect(() => { player.current = playerId; }, [playerId]);
 
-  const refresh = useCallback(async () => {
-    if (!playerId) return;
+  const refresh = useCallback(async (current: () => boolean = () => true) => {
+    if (!playerId || purchaseInFlight.current) return;
     const request = ++revision.current;
     try {
       const result = await loadFanCardCollection();
-      if (request === revision.current) {
+      if (current() && request === revision.current) {
         setData(result);
         setFailure(false);
       }
     } catch {
-      if (request === revision.current) setFailure(true);
+      if (current() && request === revision.current) setFailure(true);
     }
   }, [playerId]);
 
   useEffect(() => {
-    void refresh();
-    return () => { revision.current++; };
+    let current = true;
+    const timer = window.setTimeout(() => void refresh(() => current), 0);
+    return () => { current = false; window.clearTimeout(timer); };
   }, [refresh]);
 
   async function buy(cardId?: string) {
+    if (purchaseInFlight.current) throw new Error("구매를 처리하고 있어요.");
+    purchaseInFlight.current = true;
     const key = cardId ?? "pack";
     const requestId = requestIds.current.get(key) ?? crypto.randomUUID();
     requestIds.current.set(key, requestId);
@@ -54,6 +58,8 @@ export function useFanCollection(playerId: string | undefined, onPoints: (points
       return result.charged;
     } catch (error) {
       throw new Error(purchaseError(error));
+    } finally {
+      purchaseInFlight.current = false;
     }
   }
 

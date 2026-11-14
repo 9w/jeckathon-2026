@@ -17,6 +17,7 @@ test("첫 투구 기준 12초 동안 열고 빠른 결과는 공개 직전 마�
   assert.equal(duration_seconds, 60);
   assert.deepEqual(rounds.map(({ open_second, close_second, reveal_second }) =>
     [open_second, close_second, reveal_second]), [[6, 18, 26], [30, 32, 33], [49, null, 54]]);
+  assert.deepEqual(rounds.map(({ vote_answer }) => vote_answer), ["safe", "out", null]);
 });
 
 test("시각을 알 수 없는 타석은 건너뛰고 같은 초에 결과가 나온 타석은 관전만 허용한다", () => {

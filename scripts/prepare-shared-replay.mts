@@ -15,7 +15,7 @@ insert into public.replay_games (id, played_on, away, home, duration_seconds)
 select id, played_on, away, home, duration_seconds
 from jsonb_populate_record(null::public.replay_games, ${sqlJson(match)});
 
-insert into public.replay_rounds (game_id, id, inning, half, batter, open_second, close_second, reveal_second, result)
-select ${sqlJson(match)}->>'id', id, inning, half, batter, open_second, close_second, reveal_second, result
+insert into public.replay_rounds (game_id, id, inning, half, batter, open_second, close_second, reveal_second, result, vote_answer)
+select ${sqlJson(match)}->>'id', id, inning, half, batter, open_second, close_second, reveal_second, result, vote_answer
 from jsonb_populate_recordset(null::public.replay_rounds, ${sqlJson(rounds)});
 commit;`);
