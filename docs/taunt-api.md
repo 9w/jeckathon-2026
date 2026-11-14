@@ -12,9 +12,11 @@
   - [GET /api/taunts/cards](#get-apitauntscards) 놀리기 카드 목록
   - [POST /api/taunts](#post-apitaunts) 놀리기 보내기
   - [POST /api/taunts/random](#post-apitauntsrandom) 상대팀 불특정 1명 놀리기
+  - [GET /api/taunts/{id}](#get-apitauntsid) 보낸 놀림 확인 여부
   - [GET /api/taunts/received](#get-apitauntsreceived) 받은 놀림 목록
   - [POST /api/taunts/received/read](#post-apitauntsreceivedread) 받은 놀림 확인 처리
   - [POST /api/fans/heartbeat](#post-apifansheartbeat) 활동 신호
+  - [POST /api/fans/demo-points](#post-apifansdemo-points) 데모용 포인트 지급
 - [오류](#오류)
 - [규칙](#규칙)
 - [프론트에서 사용하기](#프론트에서-사용하기)
@@ -30,6 +32,7 @@ Supabase 프로젝트에 마이그레이션을 순서대로 적용해야 한다(
 3. `supabase/migrations/20261114160000_nickname_required_unique.sql`
 4. `supabase/migrations/20261114170000_fan_heartbeat.sql`
 5. `supabase/migrations/20261114180000_random_taunt.sql`
+6. `supabase/migrations/20261114190000_design_cards_demo_points.sql` (시안 카드·문구, 입장 300P, 데모 포인트)
 
 ## 인증
 
@@ -82,31 +85,45 @@ Authorization: Bearer <access_token>
 
 ### GET /api/taunts/cards
 
-보낼 수 있는 놀리기 카드 목록. 대상의 팀과 카드의 `targetTeam`이 같아야 보낼 수 있다.
+보낼 수 있는 놀리기 카드와 함께 고를 수 있는 문구 목록. 디자인 시안과 같은 이모지 카드 6장, 문구 5개다.
 
 **응답 200**
 
 ```json
 {
   "cards": [
-    { "id": "doosan-hibernate", "targetTeam": "doosan", "message": "곰이 아니라 겨울잠 자는 중?", "cost": 100 },
-    { "id": "lg-twins-out", "targetTeam": "lg", "message": "오늘은 쌍둥이로 아웃 두 개?", "cost": 100 }
+    { "id": "clown", "emoji": "🤡", "name": "처음 봐요?", "message": "오늘 야구 처음 봐요?", "cost": 100, "targetTeam": null }
+  ],
+  "phrases": [
+    { "id": "first-time", "message": "야구 처음 봐요?" }
   ]
 }
 ```
 
-현재 카드 (`taunt_cards` 테이블, 마이그레이션에서 시드)
+| 필드 | 타입 | 설명 |
+| --- | --- | --- |
+| `cards[].id` | string | 카드 ID. 보낼 때 `cardId` |
+| `cards[].emoji` / `name` | string | 카드 이모지·이름 |
+| `cards[].message` | string | 문구를 고르지 않았을 때의 기본 문구 |
+| `cards[].cost` | number | 비용(P) |
+| `cards[].targetTeam` | string \| null | 보낼 수 있는 대상 팀. `null`이면 모든 팀 |
+| `phrases[].id` | string | 문구 ID. 보낼 때 `phraseId` |
+| `phrases[].message` | string | 문구 |
 
-| id | 대상 팀 | 문구 | 비용 |
+현재 카드 (`taunt_cards`, 모두 팀 공통·100P)
+
+| id | 이모지 | 이름 | 기본 문구 |
 | --- | --- | --- | --- |
-| `lg-twins-out` | lg | 오늘은 쌍둥이로 아웃 두 개? | 100 |
-| `lg-jamsil-sigh` | lg | 잠실 하늘에 한숨만 가득하네~ | 100 |
-| `lg-bat-nap` | lg | 방망이가 낮잠 자는 중? | 100 |
-| `doosan-hibernate` | doosan | 곰이 아니라 겨울잠 자는 중? | 100 |
-| `doosan-honey` | doosan | 꿀 대신 삼진만 먹는 곰? | 100 |
-| `doosan-teddy` | doosan | 오늘은 곰돌이 인형 모드? | 100 |
+| `clown` | 🤡 | 처음 봐요? | 오늘 야구 처음 봐요? |
+| `turtle` | 🐢 | 거북이 주루 | 주루가 거북이네~ |
+| `yawn` | 🥱 | 졸린 경기력 | 벌써 졸린 경기력 |
+| `chart` | 📉 | 타율 하락 중 | 타율 실시간 하락 중 |
+| `salt` | 🧂 | 소금 한 사발 | 짠내 나는 경기력이네 |
+| `violin` | 🎻 | 슬픈 바이올린 | BGM 깔아드릴게요 |
 
-카드를 추가·수정하려면 `taunt_cards` 테이블에 행을 넣으면 된다(코드 변경 불필요).
+현재 문구 (`taunt_phrases`): `first-time` 야구 처음 봐요? · `turtle` 주루가 거북이네~ · `sleepy` 벌써 졸린 경기력 · `next-time` 다음엔 맞히겠지^^ · `why` 그걸 왜 거기 걸어
+
+카드·문구를 추가하거나 고치려면 테이블에 행을 넣으면 된다. 예전 팀별 카드(`lg-*`, `doosan-*`)는 비활성(`active = false`)이라 보낼 수 없다.
 
 ### POST /api/taunts
 
@@ -117,14 +134,16 @@ Authorization: Bearer <access_token>
 ```json
 {
   "receiverId": "8c1f3bca-c85a-4c32-baf1-e500315590c7",
-  "cardId": "doosan-hibernate"
+  "cardId": "turtle",
+  "phraseId": "next-time"
 }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
 | `receiverId` | string (UUID) | O | 대상 게스트 ID (`/api/taunts/targets`의 `id`) |
-| `cardId` | string | O | 카드 ID (`/api/taunts/cards`의 `id`) |
+| `cardId` | string | O | 카드 ID (`/api/taunts/cards`의 `cards[].id`) |
+| `phraseId` | string | X | 문구 ID (`phrases[].id`). 생략하면 카드 기본 문구 |
 
 **응답 201**
 
@@ -168,12 +187,13 @@ Authorization: Bearer <access_token>
 **요청**
 
 ```json
-{ "cardId": "doosan-hibernate" }
+{ "cardId": "turtle", "phraseId": "next-time" }
 ```
 
 | 필드 | 타입 | 필수 | 설명 |
 | --- | --- | --- | --- |
-| `cardId` | string | X | 보낼 카드. 생략하면(`{}`) 상대팀용 카드 중 무작위 |
+| `cardId` | string | X | 보낼 카드. 생략하면(`{}`) 무작위 |
+| `phraseId` | string | X | 문구. 생략하면 카드 기본 문구 |
 
 **응답 201**
 
@@ -183,7 +203,7 @@ Authorization: Bearer <access_token>
   "remainingPoints": 900,
   "createdAt": "2026-11-14T06:21:45.211Z",
   "receiver": { "id": "b658f01f-a5f1-4502-a084-2efc3fe6d014", "nickname": "곰잡는쌍둥이", "team": "doosan" },
-  "card": { "id": "doosan-teddy", "message": "오늘은 곰돌이 인형 모드?" }
+  "card": { "id": "turtle", "emoji": "🐢", "message": "다음엔 맞히겠지^^" }
 }
 ```
 
@@ -191,9 +211,21 @@ Authorization: Bearer <access_token>
 | --- | --- | --- |
 | `id`, `remainingPoints`, `createdAt` | | [POST /api/taunts](#post-apitaunts)와 같음 |
 | `receiver` | object | 서버가 고른 대상의 ID·닉네임·팀. "OOO님에게 보냈어요" 연출에 사용 |
-| `card` | object | 보낸 카드 ID·문구. 카드를 생략했을 때 무엇이 나갔는지 확인 |
+| `card` | object | 보낸 카드 ID·이모지·문구(고른 문구, 없으면 기본 문구) |
 
 **주요 실패**: 놀릴 수 있는 상대팀 팬이 없으면 `404 no_target`. 그 밖의 실패(`not_enough_points`, `cooldown`, `invalid_request` 등)는 [POST /api/taunts](#post-apitaunts)와 같다. 실패하면 포인트는 차감되지 않는다.
+
+### GET /api/taunts/{id}
+
+내가 보낸 놀림을 상대가 확인했는지. "읽음 👀" 표시에 쓴다. 내가 보내거나 받은 놀림만 조회된다.
+
+**응답 200**
+
+```json
+{ "id": "6d1f453d-d1ab-4ab5-b007-723ec10e6567", "readAt": "2026-11-14T07:30:02.120Z" }
+```
+
+`readAt`이 `null`이면 아직 확인 전. 없는 ID거나 내 놀림이 아니면 `404 taunt_not_found`.
 
 ### GET /api/taunts/received
 
@@ -212,8 +244,10 @@ Authorization: Bearer <access_token>
   "taunts": [
     {
       "id": "079316f5-67e2-41fa-8012-3e1a8633ff3a",
-      "cardId": "doosan-teddy",
-      "message": "오늘은 곰돌이 인형 모드?",
+      "cardId": "turtle",
+      "emoji": "🐢",
+      "cardName": "거북이 주루",
+      "message": "다음엔 맞히겠지^^",
       "sender": { "id": "80c19d61-cb0b-4598-bb95-23a6f97e548a", "nickname": "잠실직관러", "team": "lg" },
       "cost": 100,
       "createdAt": "2026-11-14T06:10:59.757Z",
@@ -227,7 +261,8 @@ Authorization: Bearer <access_token>
 | 필드 | 타입 | 설명 |
 | --- | --- | --- |
 | `taunts[].id` | string | 놀림 ID. 확인 처리에 사용 |
-| `taunts[].cardId` / `message` | string | 카드 ID / 문구 |
+| `taunts[].cardId` / `emoji` / `cardName` | string | 카드 ID / 이모지 / 이름 |
+| `taunts[].message` | string | 보낸 사람이 고른 문구(없으면 카드 기본 문구) |
 | `taunts[].sender` | object | 보낸 사람 ID·닉네임·팀. 반격할 때 `sender.id`를 `receiverId`로 사용 |
 | `taunts[].cost` | number | 보낸 사람이 쓴 포인트 |
 | `taunts[].createdAt` | string | 받은 시각 |
@@ -271,6 +306,29 @@ Authorization: Bearer <access_token>
 
 응원팀을 고르기 전이면 `403 forbidden`. 직접 호출하기보다 [`startHeartbeat()`](#활동-신호-보내기)를 쓴다.
 
+### POST /api/fans/demo-points
+
+**해커톤 데모 전용.** 예측 판정을 아직 화면이 하므로, 예측 보상과 데모 충전을 서버 포인트에 기록한다. 판정을 화면이 하므로 조작할 수 있다. 정식 판정(서버)이 생기면 제거한다.
+
+**요청**
+
+```json
+{ "key": "bat:k3j9x2:0", "amount": 100 }
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+| --- | --- | --- | --- |
+| `key` | string (1~64자) | O | 지급 키. 같은 키로는 한 번만 지급(예: `bat:<경기ID>:<타석>`) |
+| `amount` | `100` \| `300` | O | 예측 보상 100, 데모 충전 300 |
+
+**응답 200**
+
+```json
+{ "points": 400 }
+```
+
+지급 후 잔액. 이미 쓴 키면 지급하지 않고 현재 잔액을 돌려준다.
+
 ## 오류
 
 오류 응답 형식
@@ -302,6 +360,7 @@ Authorization: Bearer <access_token>
 
 | 항목 | 값 | 위치 |
 | --- | --- | --- |
+| 시작 포인트 | 입장 시 300P | `fan_profiles.points` 기본값 |
 | 카드 비용 | 카드별 `cost` (현재 모두 100P) | `taunt_cards.cost` |
 | 대상 | 상대팀, 닉네임 있음, 최근 10분 내 활동 | `list_taunt_targets`, `send_taunt` |
 | 보내는 쿨타임 | 10초 | `send_taunt` |
@@ -324,8 +383,11 @@ Authorization: Bearer <access_token>
 | --- | --- |
 | `fetchTauntTargets()` | `GET /api/taunts/targets` |
 | `fetchTauntCards()` | `GET /api/taunts/cards` |
-| `sendTaunt(receiverId, cardId)` | `POST /api/taunts` |
-| `sendRandomTaunt(cardId?)` | `POST /api/taunts/random` |
+| `sendTaunt(receiverId, cardId, phraseId?)` | `POST /api/taunts` |
+| `sendRandomTaunt(cardId?, phraseId?)` | `POST /api/taunts/random` |
+| `fetchSentTaunt(id)` | `GET /api/taunts/{id}` |
+| `claimDemoPoints(key, amount)` (`src/lib/demo-points.ts`) | `POST /api/fans/demo-points` |
+| `joinFanWithNickname(team, nickname)` (`src/lib/fan-session.ts`) | 익명 로그인 + `join_fan(p_team, p_nickname)`. 닉네임 중복이면 `NicknameTakenError` |
 | `fetchReceivedTaunts(unreadOnly?)` | `GET /api/taunts/received` |
 | `markTauntsRead(ids?)` | `POST /api/taunts/received/read` |
 | `sendHeartbeat()` / `startHeartbeat(options?)` | `POST /api/fans/heartbeat` |
@@ -333,12 +395,12 @@ Authorization: Bearer <access_token>
 ```ts
 import { fetchTauntCards, fetchTauntTargets, sendTaunt, TauntRequestError } from "@/lib/taunt-api";
 
-const [targets, cards] = await Promise.all([fetchTauntTargets(), fetchTauntCards()]);
+const [targets, { cards, phrases }] = await Promise.all([fetchTauntTargets(), fetchTauntCards()]);
 const target = targets[0];
-const card = cards.find((c) => c.targetTeam === target.team);
+const card = cards.find((c) => c.targetTeam === null || c.targetTeam === target.team)!;
 
 try {
-  const { remainingPoints } = await sendTaunt(target.id, card!.id);
+  const { remainingPoints } = await sendTaunt(target.id, card.id, phrases[3]?.id);
   setProfile((p) => p && { ...p, points: remainingPoints });
 } catch (error) {
   if (error instanceof TauntRequestError && error.code === "not_enough_points") {
@@ -401,43 +463,50 @@ src/
 ├─ app/api/taunts/
 │  ├─ route.ts                 POST   /api/taunts
 │  ├─ random/route.ts          POST   /api/taunts/random
+│  ├─ [id]/route.ts            GET    /api/taunts/{id}
 │  ├─ targets/route.ts         GET    /api/taunts/targets
 │  ├─ cards/route.ts           GET    /api/taunts/cards
 │  └─ received/
 │     ├─ route.ts              GET    /api/taunts/received
 │     └─ read/route.ts         POST   /api/taunts/received/read
-├─ app/api/fans/heartbeat/
-│  └─ route.ts                 POST   /api/fans/heartbeat
+├─ app/api/fans/
+│  ├─ heartbeat/route.ts       POST   /api/fans/heartbeat
+│  └─ demo-points/route.ts     POST   /api/fans/demo-points (데모 전용)
 ├─ server/                     서버 전용
 │  ├─ supabase.ts              요청자 토큰으로 Supabase 클라이언트 생성
 │  ├─ http.ts                  DB 오류 코드 → HTTP 응답 변환
 │  ├─ taunts.ts                RPC 호출 + 응답 변환(snake_case → camelCase)
-│  └─ fans.ts                  활동 시각 갱신
+│  └─ fans.ts                  활동 시각 갱신, 데모 포인트
 └─ lib/
    ├─ api-request.ts           토큰 첨부·오류 변환 공용 fetch
    ├─ taunt-api.ts             놀리기 클라이언트 함수
    ├─ fan-heartbeat.ts         활동 신호 클라이언트 함수
+   ├─ demo-points.ts           데모 포인트 클라이언트 함수
    └─ taunt-types.ts           공용 타입
 
 supabase/migrations/
 ├─ 20261114150000_taunts.sql                     테이블·RPC·Realtime
 ├─ 20261114160000_nickname_required_unique.sql   닉네임 중복 금지·필수
 ├─ 20261114170000_fan_heartbeat.sql              활동 신호 RPC
-└─ 20261114180000_random_taunt.sql               불특정 1명 놀리기 RPC
+├─ 20261114180000_random_taunt.sql               불특정 1명 놀리기 RPC
+└─ 20261114190000_design_cards_demo_points.sql   시안 카드·문구, 입장 300P, 데모 포인트
 ```
 
 DB 객체
 
 | 이름 | 종류 | 설명 |
 | --- | --- | --- |
-| `taunt_cards` | 테이블 | 카드 목록. 로그인 사용자 조회 가능 |
+| `taunt_cards` | 테이블 | 카드 목록(`active`인 것만 사용). 로그인 사용자 조회 가능 |
+| `taunt_phrases` | 테이블 | 고를 수 있는 문구. `taunts.phrase_id`로 참조 |
+| `demo_point_claims` | 테이블 | 데모 포인트 지급 기록(키 중복 방지). 직접 접근 불가 |
 | `taunts` | 테이블 | 보낸 놀림. 본인이 보내거나 받은 것만 조회, 직접 쓰기 불가 |
 | `fan_profiles.last_active_at` | 컬럼 | 마지막 활동 시각 |
 | `list_taunt_targets()` | RPC | 대상 목록 |
-| `send_taunt(p_receiver_id, p_card_id)` | RPC | 놀리기 전송·포인트 차감 |
-| `send_random_taunt(p_card_id)` | RPC | 대상 무작위 선정 후 `send_taunt` 호출 |
+| `send_taunt(p_receiver_id, p_card_id, p_phrase_id)` | RPC | 놀리기 전송·포인트 차감 |
+| `send_random_taunt(p_card_id, p_phrase_id)` | RPC | 대상 무작위 선정 후 `send_taunt` 호출 |
 | `list_received_taunts(p_unread_only, p_limit)` | RPC | 받은 놀림 목록 |
 | `mark_taunts_read(p_ids)` | RPC | 확인 처리 |
 | `touch_fan()` | RPC | 활동 시각 갱신(heartbeat) |
+| `claim_demo_points(p_key, p_amount)` | RPC | 데모 포인트 지급(데모 전용) |
 
 DB 함수 오류 코드: `JK001` 포인트 부족, `JK002` 쿨타임, `JK003` 수신 한도, `JK004` 대상 비활성, `JK005` 닉네임 미설정, `JK006` 무작위 대상 없음 (`src/server/http.ts`에서 HTTP로 변환)

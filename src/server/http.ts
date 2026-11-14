@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 export class HttpError extends Error {
   constructor(
     readonly status: number,
@@ -18,6 +20,8 @@ const dbErrors: Record<string, [number, string, string]> = {
   PGRST303: [401, "unauthorized", "로그인이 만료되었습니다."],
   "22023": [400, "invalid_request", "놀릴 수 없는 대상이거나 잘못된 카드입니다."],
   "22P02": [400, "invalid_request", "요청 형식이 올바르지 않습니다."],
+  "23502": [400, "invalid_request", "요청 형식이 올바르지 않습니다."],
+  "23514": [400, "invalid_request", "요청 형식이 올바르지 않습니다."],
   P0002: [404, "target_not_found", "대상을 찾을 수 없습니다."],
   JK001: [402, "not_enough_points", "포인트가 부족합니다."],
   JK002: [429, "cooldown", "잠시 후 다시 놀릴 수 있습니다."],
@@ -35,6 +39,8 @@ export function fromDbError(error: PostgrestLikeError): HttpError {
 }
 
 export function errorResponse(error: unknown) {
+  // Next.js 내부 신호(빌드 시 요청 헤더 접근으로 동적 경로 전환 등)는 잡지 말고 다시 던진다.
+  unstable_rethrow(error);
   let http: HttpError;
   if (error instanceof HttpError) {
     http = error;
