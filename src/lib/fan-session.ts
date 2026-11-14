@@ -30,6 +30,13 @@ async function getUserId() {
   return data.session?.user.id;
 }
 
+/** 서버 API 호출용 액세스 토큰. 게스트 세션이 없으면 null. */
+export async function getAccessToken() {
+  const { data, error } = await supabase().auth.getSession();
+  if (error) throw error;
+  return data.session?.access_token ?? null;
+}
+
 export async function resetFanSession() {
   const { error } = await supabase().auth.signOut({ scope: "local" });
   // Local sign-out can clear the session even when revocation fails.
@@ -69,6 +76,27 @@ export async function joinFan(team: Team) {
   const { data: profile, error } = await supabase()
     .rpc("join_fan", { p_team: team })
     .single<FanProfile>();
+  if (error) throw error;
+  return profile;
+}
+
+export class NicknameTakenError extends Error {
+  constructor() {
+    super("이미 사용 중인 닉네임이에요");
+  }
+}
+
+/** 팀과 닉네임을 함께 등록해 입장한다. 이미 입장했으면 기존 프로필을 돌려준다. 닉네임이 겹치면 NicknameTakenError. */
+export async function joinFanWithNickname(team: Team, nickname: string) {
+  if (!(await getUserId())) {
+    const { error } = await supabase().auth.signInAnonymously();
+    if (error) throw error;
+  }
+
+  const { data: profile, error } = await supabase()
+    .rpc("join_fan", { p_team: team, p_nickname: nickname })
+    .single<FanProfile>();
+  if (error?.code === "23505") throw new NicknameTakenError();
   if (error) throw error;
   return profile;
 }
