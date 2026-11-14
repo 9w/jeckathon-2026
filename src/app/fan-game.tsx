@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import {
   castVote,
   isSupabaseConfigured,
   joinFan,
+  loadVote,
   resetFanSession,
   restoreFan,
   saveNickname,
@@ -13,17 +14,13 @@ import {
   type Team,
 } from "@/lib/fan-session";
 import { normalizeNickname } from "@/lib/nickname";
-import { PlateReplay } from "./plate-replay";
-
-const teams = {
-  lg: { label: "LG 트윈스", mark: "LG" },
-  doosan: { label: "두산 베어스", mark: "DB" },
-} as const;
+import { FanSheet, randomNicknames, setupProgress, TeamDots, TeamSheet, teams } from "./fan-setup";
+import { PlateReplay, type ReplayMatchState } from "./plate-replay";
 
 const choices = [
-  { value: "safe", label: "출루한다" },
-  { value: "out", label: "아웃된다" },
-] satisfies { value: Choice; label: string }[];
+  { value: "safe", label: "출루한다", caption: "살아남는다" },
+  { value: "out", label: "아웃된다", caption: "잡힌다" },
+] satisfies { value: Choice; label: string; caption: string }[];
 
 function Burst({ className = "" }: { className?: string }) {
   return (
@@ -46,6 +43,14 @@ function Burst({ className = "" }: { className?: string }) {
 }
 
 export function FanGame() {
+  const [screen, setScreen] = useState<"start" | "setup" | "home" | "room" | "record">("start");
+  const [teamSheet, setTeamSheet] = useState(false);
+  const [infoSheet, setInfoSheet] = useState<"howto" | "taunt" | "share" | null>(null);
+  const [draftTeam, setDraftTeam] = useState<Team>("lg");
+  const [lockedTeam, setLockedTeam] = useState<Team | null>(null);
+  const [avatar, setAvatar] = useState("");
+  const [shareMessage, setShareMessage] = useState("");
+  const [match, setMatch] = useState<ReplayMatchState | null>(null);
   const [profile, setProfile] = useState<FanProfile | null>(null);
   const [vote, setVote] = useState<Choice | null>(null);
   const [pending, setPending] = useState<"restore" | Team | "nickname" | "vote" | "reset" | null>(
@@ -55,11 +60,12 @@ export function FanGame() {
   const [restoreError, setRestoreError] = useState(false);
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [editingNickname, setEditingNickname] = useState(false);
-  const [nickname, setNickname] = useState("");
-  const voteHeading = useRef<HTMLHeadingElement>(null);
+  const [nickname, setNickname] = useState(randomNicknames[0]);
+  const screenHeading = useRef<HTMLHeadingElement>(null);
   const nicknameButton = useRef<HTMLButtonElement>(null);
-  const teamHeading = useRef<HTMLHeadingElement>(null);
-  const returningToTeam = useRef(false);
+  const avatarInput = useRef<HTMLInputElement>(null);
+  const setupNickname = normalizeNickname(nickname);
+  const nicknameValid = setupNickname !== null && [...setupNickname].length <= 10;
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -68,8 +74,15 @@ export function FanGame() {
     restoreFan()
       .then((current) => {
         if (!active || !current) return;
+        if (!current.profile.nickname) {
+          setDraftTeam(current.profile.team);
+          setLockedTeam(current.profile.team);
+          setScreen("setup");
+          return;
+        }
         setProfile(current.profile);
         setVote(current.vote);
+        setScreen("home");
       })
       .catch(() => {
         if (active) setRestoreError(true);
@@ -81,26 +94,43 @@ export function FanGame() {
     return () => { active = false; };
   }, [restoreAttempt]);
 
-  const playerId = profile?.id;
   useEffect(() => {
-    if (playerId) {
-      voteHeading.current?.focus();
-    } else if (returningToTeam.current) {
-      returningToTeam.current = false;
-      teamHeading.current?.focus();
-    }
-  }, [playerId]);
+    if (screen !== "start") screenHeading.current?.focus({ preventScroll: true });
+  }, [screen]);
 
-  async function chooseTeam(team: Team) {
-    if (pending || !isSupabaseConfigured) return;
-    setPending(team);
+  useEffect(() => () => {
+    if (avatar) URL.revokeObjectURL(avatar);
+  }, [avatar]);
+
+  function goTo(next: typeof screen) {
+    setInfoSheet(null);
+    setError(null);
+    setScreen(next);
+    window.scrollTo(0, 0);
+  }
+
+  function chooseAvatar(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (file?.type.startsWith("image/")) setAvatar(URL.createObjectURL(file));
+    event.target.value = "";
+  }
+
+  async function enterGame(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending || restoreError || !isSupabaseConfigured || !nicknameValid || !setupNickname) return;
+    setPending(draftTeam);
     setError(null);
     try {
-      const joined = await joinFan(team);
-      setProfile(joined.profile);
-      setVote(joined.vote);
+      const joined = await joinFan(draftTeam);
+      setLockedTeam(joined.team);
+      setDraftTeam(joined.team);
+      const existingVote = await loadVote(joined.id);
+      const saved = await saveNickname(joined.id, setupNickname);
+      setProfile({ ...joined, nickname: saved });
+      setVote(existingVote);
+      goTo("home");
     } catch {
-      setError({ field: "team", message: "입장하지 못했습니다. 연결을 확인하고 팀을 다시 선택해 주세요." });
+      setError({ field: "team", message: "입장 정보를 저장하지 못했어요. 다시 시도해 주세요." });
     } finally {
       setPending(null);
     }
@@ -153,11 +183,15 @@ export function FanGame() {
     setError(null);
     try {
       await resetFanSession();
-      returningToTeam.current = true;
       setProfile(null);
       setVote(null);
-      setNickname("");
+      setNickname(randomNicknames[0]);
+      setDraftTeam("lg");
+      setLockedTeam(null);
+      setAvatar("");
+      setMatch(null);
       setEditingNickname(false);
+      goTo("start");
     } catch {
       setError({ field: "reset", message: "초기화하지 못했습니다. 다시 시도해 주세요." });
     } finally {
@@ -165,178 +199,228 @@ export function FanGame() {
     }
   }
 
+  const team = teams[profile?.team ?? draftTeam];
+  const teamShort = team.short;
+  const matchScore = match?.awayScore !== undefined && match.homeScore !== undefined
+    ? `${match.awayScore} : ${match.homeScore}`
+    : null;
+  const showRestoreStatus = pending === "restore" || restoreError || !isSupabaseConfigured;
+  const avatarMark = avatar
+    ? <span className="fan-avatar-image" style={{ backgroundImage: `url("${avatar}")` }} />
+    : [...(profile?.nickname ?? "?")][0];
+
+  async function copyInvite() {
+    try {
+      await navigator.clipboard.writeText(`${profile?.nickname ?? teamShort}님의 도전장! 야구 팬덤 대결에서 같이 붙어요 ⚾ ${window.location.origin}`);
+      setShareMessage("초대 링크를 복사했어요.");
+    } catch {
+      setShareMessage("복사하지 못했어요. 주소창의 링크를 공유해 주세요.");
+    }
+  }
+
   return (
-    <div className="fan-game" data-team={profile?.team}>
-      {profile && (
-        <header className="fan-header">
-          <span className="text-sm font-bold">야구 팬덤 대결</span>
-          <div className="flex items-center gap-2">
-            <span className="fan-points" aria-label={`내 포인트 ${profile.points}점`}>
-              {profile.points.toLocaleString("ko-KR")}P
-            </span>
-            <button
-              type="button"
-              title="이 브라우저에서 새 참가자로 시작"
-              disabled={pending !== null}
-              onClick={resetParticipation}
-              className="fan-quiet-button"
-            >
-              {pending === "reset" ? "초기화 중…" : "초기화"}
-            </button>
+    <main className="fan-stage" data-team={profile?.team ?? (screen === "setup" ? draftTeam : "lg")}>
+      {screen === "start" && (
+        <section className="fan-welcome">
+          <Burst className="fan-welcome-burst" />
+          <div className="fan-welcome-copy">
+            <h1>야구 팬덤 대결</h1>
+            <p>경기는 선수들이,<br />신경전은 팬들이!</p>
+            <small><span aria-hidden="true">●</span> 리플레이 · LG vs 두산 · 잠실</small>
           </div>
-        </header>
+          <div className="fan-stage-bottom">
+            <button type="button" className="fan-stage-button" onClick={() => goTo("setup")} disabled={showRestoreStatus}>입장하기</button>
+            <p className="fan-status">야구 몰라도 30초면 시작해요</p>
+            {pending === "restore" && <p role="status" className="fan-status">참가 정보를 확인하고 있어요.</p>}
+            {!isSupabaseConfigured && <p role="status" className="fan-status">서버 연결 설정이 필요합니다.</p>}
+            {restoreError && <div className="fan-stage-error">
+              <p role="alert" className="fan-error">참가 정보를 불러오지 못했습니다.</p>
+              <button type="button" className="fan-quiet-button" onClick={() => {
+                setRestoreError(false);
+                setPending("restore");
+                setRestoreAttempt((attempt) => attempt + 1);
+              }}>다시 시도</button>
+            </div>}
+          </div>
+        </section>
       )}
 
-      <main className="flex flex-1 flex-col gap-6 px-5 py-7">
-        {profile ? (
-          <>
-            {error?.field === "reset" && <p role="alert" className="fan-error">{error.message}</p>}
-            <section aria-label="내 응원팀과 닉네임" className="fan-profile">
-              <div className="flex items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
-                  <span className="fan-team-dot" aria-hidden="true" />
-                  {teams[profile.team].label}
-                </span>
-                <button
-                  ref={nicknameButton}
-                  type="button"
-                  className="fan-quiet-button min-w-0 max-w-[55%] truncate text-right"
-                  aria-label={profile.nickname ? `닉네임 변경 (${profile.nickname})` : "닉네임 설정"}
-                  aria-expanded={editingNickname}
-                  aria-controls={editingNickname ? "nickname-form" : undefined}
-                  aria-disabled={pending === "nickname" || pending === "reset"}
-                  onClick={() => {
-                    if (pending === "nickname" || pending === "reset") return;
-                    if (editingNickname) {
-                      closeNickname();
-                      return;
-                    }
-                    setNickname(profile.nickname ?? "");
-                    setError(null);
-                    setEditingNickname(true);
-                  }}
-                >
-                  {profile.nickname ?? "닉네임 설정"}
-                </button>
+      {screen === "setup" && (
+        <form className="fan-onboarding" onSubmit={enterGame}>
+          <div className="fan-setup-progress" aria-hidden="true"><span style={setupProgress(nicknameValid)} /></div>
+          <h1 ref={screenHeading} tabIndex={-1}>오늘은 어느 편에<br />서시겠어요?</h1>
+          <div className="fan-setup-identity">
+            <input type="file" ref={avatarInput} accept="image/*" tabIndex={-1} hidden onChange={chooseAvatar} />
+            <button type="button" className="fan-avatar-picker" aria-label="프로필 사진 선택" onClick={() => avatarInput.current?.click()}>
+              {avatar ? avatarMark : "?"}<span aria-hidden="true">+</span>
+            </button>
+            <div className="fan-setup-nickname">
+              <label htmlFor="setup-nickname">닉네임</label>
+              <div className="fan-setup-field">
+                <input id="setup-nickname" autoComplete="off" placeholder="2~10자" value={nickname} aria-invalid={!nicknameValid} aria-describedby="setup-nickname-tip" disabled={pending !== null} onChange={(event) => {
+                  setNickname([...event.target.value].slice(0, 10).join(""));
+                  setError(null);
+                }} />
+                <span aria-hidden="true">{[...nickname].length}/10</span>
               </div>
-              {editingNickname && (
-                <form id="nickname-form" onSubmit={submitNickname} className="space-y-2">
-                  <label htmlFor="nickname" className="block text-sm font-semibold">닉네임</label>
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
-                    <input
-                      id="nickname"
-                      value={nickname}
-                      onChange={(event) => {
-                        setNickname(event.target.value);
-                        if (error?.field === "nickname") setError(null);
-                      }}
-                      autoFocus
-                      autoComplete="off"
-                      placeholder="2~16자"
-                      aria-invalid={error?.field === "nickname" ? true : undefined}
-                      aria-describedby={error?.field === "nickname" ? "nickname-error" : undefined}
-                      disabled={pending === "nickname"}
-                      className="fan-input"
-                    />
-                    <button type="submit" disabled={pending !== null} className="fan-save-button">
-                      {pending === "nickname" ? "저장 중" : "저장"}
-                    </button>
-                    <button type="button" disabled={pending === "nickname"} onClick={closeNickname} className="fan-quiet-button">
-                      취소
-                    </button>
-                  </div>
-                  {error?.field === "nickname" && <p id="nickname-error" role="alert" className="fan-error">{error.message}</p>}
-                </form>
-              )}
-            </section>
-
-            <section aria-labelledby="vote-heading" className="space-y-3">
-              <div className="fan-match-card">
-                <Burst className="fan-match-burst" />
-                <div className="fan-match-graphic" aria-hidden="true">
-                  <span className="fan-team-mark" data-team="lg">LG</span>
-                  <span className="fan-versus">VS</span>
-                  <span className="fan-team-mark" data-team="doosan">DB</span>
-                </div>
-                <div className="relative">
-                  <p className="fan-match-label">LG 트윈스 vs 두산 베어스 · 데모 투표</p>
-                  <h1 id="vote-heading" ref={voteHeading} tabIndex={-1} className="fan-vote-heading">이번 타자, 출루할까?</h1>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {choices.map(({ value, label }) => (
-                  <button
-                    key={value}
-                    type="button"
-                    disabled={pending !== null || vote !== null}
-                    aria-pressed={vote === value}
-                    onClick={() => submitVote(value)}
-                    className="fan-choice"
-                  >
-                    <svg aria-hidden="true" viewBox="0 0 32 32" width="32" height="32" fill="none">
-                      {value === "safe" ? (
-                        <path d="m7 16 6 6L25 10" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
-                      ) : (
-                        <path d="m9 9 14 14m0-14L9 23" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" />
-                      )}
-                    </svg>
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="grid min-h-5">
-                <p role="status" className="fan-status col-start-1 row-start-1">
-                  {vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}
-                </p>
-                {error?.field === "vote" && <p role="alert" className="fan-error col-start-1 row-start-1">{error.message}</p>}
-              </div>
-            </section>
-            <PlateReplay />
-          </>
-        ) : (
-          <section aria-labelledby="team-heading" className="fan-team-select">
-            <div className="fan-intro">
-              <Burst className="fan-intro-burst fan-intro-burst-lg" />
-              <Burst className="fan-intro-burst fan-intro-burst-doosan" />
-              <div className="fan-intro-copy">
-                <h1>야구 팬덤<br />대결</h1>
-                <p>경기는 선수들이, 신경전은 팬들이!</p>
+              <div className="fan-setup-feedback">
+                <p id="setup-nickname-tip" className={nicknameValid ? "fan-nick-valid" : "fan-error"}>{nicknameValid ? "✓ 사용 가능한 닉네임이에요" : "닉네임은 2~10자로 입력해 주세요"}</p>
+                <button type="button" className="fan-random-nick" disabled={pending !== null} onClick={() => {
+                  const available = randomNicknames.filter((name) => name !== nickname);
+                  setNickname(available[Math.floor(Math.random() * available.length)]);
+                  setError(null);
+                }}>🎲 랜덤 닉네임</button>
               </div>
             </div>
-            <h2 id="team-heading" ref={teamHeading} tabIndex={-1} className="fan-team-heading">어느 팀을 응원하세요?</h2>
-            <div className="grid grid-cols-2 gap-3">
-              {(Object.keys(teams) as Team[]).map((team) => (
-                <button
-                  key={team}
-                  type="button"
-                  disabled={pending !== null || restoreError || !isSupabaseConfigured}
-                  onClick={() => chooseTeam(team)}
-                  className="fan-team-button"
-                  data-team={team}
-                >
-                  <span className="fan-team-mark" aria-hidden="true">{teams[team].mark}</span>
-                  <span>{teams[team].label}</span>
+          </div>
+          <section className="fan-camp" aria-labelledby="camp-heading">
+            <h2 id="camp-heading">응원 진영</h2>
+            <p>오늘 경기는 LG vs 두산이에요</p>
+            <button type="button" className="fan-camp-picker" aria-haspopup="dialog" onClick={() => setTeamSheet(true)} disabled={pending !== null || lockedTeam !== null}>
+              <TeamDots colors={team.colors} />
+              <strong>{team.label}</strong>
+              <span>{lockedTeam ? "선택됨" : "변경 ⌄"}</span>
+            </button>
+            <p>경기 중에는 진영을 바꿀 수 없어요</p>
+          </section>
+          <div className="fan-stage-bottom">
+            {error?.field === "team" && <p role="alert" className="fan-error">{error.message}</p>}
+            <button type="submit" className="fan-stage-button" disabled={pending !== null || !nicknameValid}>{pending ? "입장하고 있어요…" : `${teamShort} 진영으로 참전하기`}</button>
+          </div>
+        </form>
+      )}
+      {screen === "setup" && teamSheet && <TeamSheet selected={draftTeam} onSelect={setDraftTeam} onClose={() => setTeamSheet(false)} />}
+
+      {profile && screen === "home" && (
+        <section className="fan-lobby">
+          <Burst className="fan-lobby-burst" />
+          <header className="fan-lobby-header">
+            <h1 ref={screenHeading} tabIndex={-1}>야구 팬덤 대결</h1>
+            <button type="button" className="fan-profile-chip" onClick={() => goTo("record")}>
+              <span className="fan-small-avatar" aria-hidden="true">{avatarMark}</span><strong>{profile.nickname}</strong>
+            </button>
+          </header>
+          <div className="fan-lobby-intro">
+            <h2>경기는 선수들이,<br />신경전은 팬들이!</h2>
+            <p>야구 몰라도 괜찮아요. 일단 친구부터 이겨보세요.</p>
+          </div>
+          <div className="fan-lobby-match">
+            <span className="fan-match-tag">리플레이 · {match?.inning ?? "잠실"}</span>
+            <div className="fan-lobby-score"><strong>LG</strong><span className="fan-replay-number">{matchScore ?? "vs"}</span><strong>두산</strong></div>
+            <div className="fan-lobby-match-footer">
+              <span>9월 3일 경기</span>
+              <button type="button" className="fan-stage-button fan-stage-white" onClick={() => goTo("room")}>참전하기 →</button>
+            </div>
+          </div>
+          <div className="fan-guide-title"><h2>어떻게 하는 게임인가요?</h2><button type="button" className="fan-quiet-button underline" onClick={() => setInfoSheet("howto")}>30초 설명</button></div>
+          <ol className="fan-guide">
+            <li><button type="button" onClick={() => goTo("room")}><span>1</span><strong>다음 타자, 살아남을까?<small>출루 또는 아웃 예측</small></strong><i aria-hidden="true">⚾</i></button></li>
+            <li><button type="button" onClick={() => setInfoSheet("howto")}><span>2</span><strong>맞혔다면 100P!<small>예측 성공 시 포인트</small></strong><i aria-hidden="true">+100P</i></button></li>
+            <li><button type="button" onClick={() => setInfoSheet("taunt")}><span>3</span><strong>상대팀 팬에게 한 방!<small>포인트로 도발 카드 전송</small></strong><i aria-hidden="true">😈</i></button></li>
+          </ol>
+          <button type="button" className="fan-stage-button fan-stage-white" onClick={() => goTo("room")}>지금 참전하기</button>
+        </section>
+      )}
+
+      {profile && (screen === "room" || match !== null) && (
+        <section className="fan-room" hidden={screen !== "room"} aria-label="경기방">
+          <header className="fan-room-header">
+            <button type="button" className="fan-back" aria-label="홈으로 돌아가기" onClick={() => goTo("home")}>‹</button>
+            <span>{matchScore ? `${match?.inning} · ${match?.outs}아웃 · LG ${matchScore} 두산` : "LG vs 두산 · 리플레이"}</span>
+            <span className="fan-points" aria-label={`내 포인트 ${profile.points}점`}>{profile.points.toLocaleString("ko-KR")}P</span>
+          </header>
+          <div className="fan-room-hero">
+            <Burst className="fan-room-burst" />
+            {match ? (
+              <div className="fan-room-player">
+                <span className="fan-room-player-avatar" aria-hidden="true">{[...match.batter][0]}</span>
+                <div><h2>{match.batter}</h2><p>{match.battingTeam} · 현재 타자</p></div>
+              </div>
+            ) : <div><h2>LG 트윈스 vs 두산 베어스</h2><p>9월 3일 · 잠실</p></div>}
+            <span className="fan-match-tag">데모 투표</span>
+          </div>
+          <section aria-labelledby="vote-heading" className="fan-room-vote">
+            <h1 id="vote-heading" ref={screen === "room" ? screenHeading : undefined} tabIndex={-1}>{vote ? "예측 완료! 결과를 기다려 보세요" : "이번 타자, 살아남을까요?"}</h1>
+            <p>한 번 고르면 바꿀 수 없어요</p>
+            <div className="fan-room-choices">
+              {choices.map(({ value, label, caption }) => (
+                <button key={value} type="button" className="fan-choice" disabled={pending !== null || vote !== null} aria-pressed={vote === value} onClick={() => submitVote(value)}>
+                  <strong>{value === "safe" ? "🏃" : "🙅"} {label}</strong>
+                  <small>{vote === value ? "✓ 예측 완료" : caption}</small>
                 </button>
               ))}
             </div>
-            <div className="min-h-11">
-              {pending && <p role="status" className="fan-status">{pending === "restore" ? "참가 정보를 확인하고 있어요." : "입장하고 있어요."}</p>}
-              {!isSupabaseConfigured && <p role="status" className="fan-status">서버 연결 설정이 필요합니다.</p>}
-              {error?.field === "team" && <p role="alert" className="fan-error">{error.message}</p>}
-              {restoreError && (
-                <div className="flex flex-wrap items-center justify-between gap-x-2">
-                  <p role="alert" className="fan-error">참가 정보를 불러오지 못했습니다.</p>
-                  <button type="button" className="fan-control" onClick={() => {
-                    setRestoreError(false);
-                    setPending("restore");
-                    setRestoreAttempt((attempt) => attempt + 1);
-                  }}>다시 시도</button>
-                </div>
-              )}
-            </div>
+            <p role="status" className="fan-status">{vote ? "투표가 저장됐어요." : pending === "vote" ? "투표 저장 중…" : ""}</p>
+            {error?.field === "vote" && <p role="alert" className="fan-error">{error.message}</p>}
           </section>
-        )}
-      </main>
-    </div>
+          <PlateReplay onMatchChange={setMatch} />
+          <nav className="fan-room-tabs" aria-label="경기 메뉴">
+            <button type="button" aria-current="page" onClick={() => window.scrollTo(0, 0)}><span aria-hidden="true">⚾</span>경기방</button>
+            <button type="button" onClick={() => setInfoSheet("taunt")}><span aria-hidden="true">😈</span>도발하기</button>
+            <button type="button" onClick={() => { setShareMessage(""); setInfoSheet("share"); }}><span aria-hidden="true">↗</span>경기 공유</button>
+            <button type="button" onClick={() => goTo("record")}><span aria-hidden="true">★</span>내 기록</button>
+          </nav>
+        </section>
+      )}
+
+      {profile && screen === "record" && (
+        <section className="fan-record">
+          <header className="fan-room-header">
+            <button type="button" className="fan-back" aria-label="홈으로 돌아가기" onClick={() => goTo("home")}>‹</button>
+            <h1 ref={screenHeading} tabIndex={-1}>내 기록</h1>
+            <button type="button" className="fan-quiet-button" disabled={pending !== null} onClick={resetParticipation}>{pending === "reset" ? "초기화 중…" : "초기화"}</button>
+          </header>
+          <div className="fan-record-card fan-replay-board">
+            <span className="fan-small-avatar" aria-hidden="true">{avatarMark}</span>
+            <strong>{profile.nickname}</strong>
+            <p>{team.label} · {profile.points.toLocaleString("ko-KR")}P</p>
+            <p>{vote ? `내 예측 · ${choices.find(({ value }) => value === vote)?.label}` : "아직 저장된 예측이 없어요."}</p>
+            <button ref={nicknameButton} type="button" className="fan-quiet-button underline" aria-expanded={editingNickname} aria-controls={editingNickname ? "nickname-form" : undefined} disabled={pending !== null} onClick={() => {
+              if (editingNickname) { closeNickname(); return; }
+              setNickname(profile.nickname ?? "");
+              setError(null);
+              setEditingNickname(true);
+            }}>닉네임 변경</button>
+            {editingNickname && (
+              <form id="nickname-form" onSubmit={submitNickname}>
+                <label htmlFor="nickname">닉네임</label>
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+                  <input id="nickname" value={nickname} onChange={(event) => { setNickname(event.target.value); if (error?.field === "nickname") setError(null); }} autoFocus autoComplete="off" placeholder="2~16자" aria-invalid={error?.field === "nickname"} aria-describedby={error?.field === "nickname" ? "nickname-error" : undefined} disabled={pending !== null} className="fan-input" />
+                  <button type="submit" disabled={pending !== null} className="fan-save-button">{pending === "nickname" ? "저장 중" : "저장"}</button>
+                  <button type="button" disabled={pending !== null} onClick={closeNickname} className="fan-quiet-button">취소</button>
+                </div>
+                {error?.field === "nickname" && <p id="nickname-error" role="alert" className="fan-error">{error.message}</p>}
+              </form>
+            )}
+          </div>
+          {error?.field === "reset" && <p role="alert" className="fan-error">{error.message}</p>}
+          <button type="button" className="fan-stage-button" onClick={() => goTo("room")}>경기방으로 돌아가기</button>
+        </section>
+      )}
+
+      {infoSheet === "howto" && (
+        <FanSheet title="30초 설명" onClose={() => setInfoSheet(null)}>
+          <ol className="fan-howto">
+            <li><strong>타석마다 한 번, 출루 vs 아웃</strong><p>타자가 살아서 나가면 출루, 잡히면 아웃이에요.</p></li>
+            <li><strong>맞히면 +100P</strong><p>볼넷·안타·홈런은 모두 출루예요. 현재는 데모 투표로 참여할 수 있어요.</p></li>
+            <li><strong>포인트로 도발 카드</strong><p>상대 진영 팬에게 도발 카드를 보내는 기능은 준비 중이에요.</p></li>
+          </ol>
+          <button type="button" className="fan-stage-button" onClick={() => goTo("room")}>바로 해보기</button>
+        </FanSheet>
+      )}
+      {infoSheet === "taunt" && (
+        <FanSheet title="상대팀에게 한 방!" onClose={() => setInfoSheet(null)}>
+          <p className="fan-sheet-message">도발 카드 전송은 준비 중이에요.</p>
+          <button type="button" className="fan-stage-button" onClick={() => setInfoSheet(null)}>닫기</button>
+        </FanSheet>
+      )}
+      {infoSheet === "share" && (
+        <FanSheet title={`${profile?.nickname}님의 도전장!`} onClose={() => setInfoSheet(null)}>
+          <p className="fan-sheet-message">야구 몰라도 돼요, 저부터 이겨봐요</p>
+          <button type="button" className="fan-stage-button" onClick={copyInvite}>초대 링크 복사하기</button>
+          <p role="status" className="fan-status">{shareMessage}</p>
+        </FanSheet>
+      )}
+    </main>
   );
 }

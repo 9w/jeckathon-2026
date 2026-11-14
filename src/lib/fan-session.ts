@@ -35,7 +35,7 @@ export async function resetFanSession() {
   if (error && (await getUserId())) throw error;
 }
 
-async function loadVote(id: string): Promise<Choice | null> {
+export async function loadVote(id: string): Promise<Choice | null> {
   const { data, error } = await supabase()
     .from("fan_votes")
     .select("choice")
@@ -69,7 +69,7 @@ export async function joinFan(team: Team) {
     .rpc("join_fan", { p_team: team })
     .single<FanProfile>();
   if (error) throw error;
-  return { profile, vote: await loadVote(profile.id) };
+  return profile;
 }
 
 export async function saveNickname(id: string, nickname: string) {
