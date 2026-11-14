@@ -29,6 +29,12 @@ async function getUserId() {
   return data.session?.user.id;
 }
 
+export async function resetFanSession() {
+  const { error } = await supabase().auth.signOut({ scope: "local" });
+  // Local sign-out can clear the session even when revocation fails.
+  if (error && (await getUserId())) throw error;
+}
+
 async function loadVote(id: string): Promise<Choice | null> {
   const { data, error } = await supabase()
     .from("fan_votes")

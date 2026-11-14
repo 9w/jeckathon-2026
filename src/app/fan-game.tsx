@@ -5,6 +5,7 @@ import {
   castVote,
   isSupabaseConfigured,
   joinFan,
+  resetFanSession,
   restoreFan,
   saveNickname,
   type Choice,
@@ -26,16 +27,18 @@ const choices = [
 export function FanGame() {
   const [profile, setProfile] = useState<FanProfile | null>(null);
   const [vote, setVote] = useState<Choice | null>(null);
-  const [pending, setPending] = useState<"restore" | Team | "nickname" | "vote" | null>(
+  const [pending, setPending] = useState<"restore" | Team | "nickname" | "vote" | "reset" | null>(
     isSupabaseConfigured ? "restore" : null,
   );
-  const [error, setError] = useState<{ field: "team" | "nickname" | "vote"; message: string } | null>(null);
+  const [error, setError] = useState<{ field: "team" | "nickname" | "vote" | "reset"; message: string } | null>(null);
   const [restoreError, setRestoreError] = useState(false);
   const [restoreAttempt, setRestoreAttempt] = useState(0);
   const [editingNickname, setEditingNickname] = useState(false);
   const [nickname, setNickname] = useState("");
   const voteHeading = useRef<HTMLHeadingElement>(null);
   const nicknameButton = useRef<HTMLButtonElement>(null);
+  const teamHeading = useRef<HTMLHeadingElement>(null);
+  const returningToTeam = useRef(false);
 
   useEffect(() => {
     if (!isSupabaseConfigured) return;
@@ -59,7 +62,12 @@ export function FanGame() {
 
   const playerId = profile?.id;
   useEffect(() => {
-    if (playerId) voteHeading.current?.focus();
+    if (playerId) {
+      voteHeading.current?.focus();
+    } else if (returningToTeam.current) {
+      returningToTeam.current = false;
+      teamHeading.current?.focus();
+    }
   }, [playerId]);
 
   async function chooseTeam(team: Team) {
@@ -118,20 +126,50 @@ export function FanGame() {
     }
   }
 
+  async function resetParticipation() {
+    if (pending || !profile) return;
+    setPending("reset");
+    setError(null);
+    try {
+      await resetFanSession();
+      returningToTeam.current = true;
+      setProfile(null);
+      setVote(null);
+      setNickname("");
+      setEditingNickname(false);
+    } catch {
+      setError({ field: "reset", message: "초기화하지 못했습니다. 다시 시도해 주세요." });
+    } finally {
+      setPending(null);
+    }
+  }
+
   return (
     <>
       <header className="flex min-h-14 items-center justify-between gap-3 border-b border-black/10 px-5 dark:border-white/15">
         <span className="shrink-0 text-sm font-bold">야구 팬덤 대결</span>
         {profile && (
-          <span className="rounded-full bg-neutral-100 px-3 py-1.5 text-sm font-bold tabular-nums dark:bg-neutral-800" aria-label={`내 포인트 ${profile.points}점`}>
-            {profile.points.toLocaleString("ko-KR")}P
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-neutral-100 px-3 py-1.5 text-sm font-bold tabular-nums dark:bg-neutral-800" aria-label={`내 포인트 ${profile.points}점`}>
+              {profile.points.toLocaleString("ko-KR")}P
+            </span>
+            <button
+              type="button"
+              title="이 브라우저에서 새 참가자로 시작"
+              disabled={pending !== null}
+              onClick={resetParticipation}
+              className="min-h-11 shrink-0 rounded-md px-2 text-sm font-semibold underline-offset-4 hover:enabled:underline disabled:opacity-60"
+            >
+              {pending === "reset" ? "초기화 중…" : "초기화"}
+            </button>
+          </div>
         )}
       </header>
 
       <main className="flex flex-1 flex-col gap-6 px-5 py-7">
         {profile ? (
           <>
+            {error?.field === "reset" && <p role="alert" className="text-sm font-medium text-red-700 dark:text-red-300">{error.message}</p>}
             <section aria-label="내 응원팀과 닉네임" className="border-b border-black/10 pb-4 dark:border-white/15">
               <div className="flex items-center justify-between gap-3">
                 <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
@@ -145,9 +183,9 @@ export function FanGame() {
                   aria-label={profile.nickname ? `닉네임 변경 (${profile.nickname})` : "닉네임 설정"}
                   aria-expanded={editingNickname}
                   aria-controls={editingNickname ? "nickname-form" : undefined}
-                  aria-disabled={pending === "nickname"}
+                  aria-disabled={pending === "nickname" || pending === "reset"}
                   onClick={() => {
-                    if (pending === "nickname") return;
+                    if (pending === "nickname" || pending === "reset") return;
                     if (editingNickname) {
                       closeNickname();
                       return;
@@ -216,7 +254,7 @@ export function FanGame() {
         ) : (
           <section aria-labelledby="team-heading" className="space-y-5">
             <div className="space-y-2">
-              <h1 id="team-heading" className="text-2xl font-bold tracking-tight">어느 팀을 응원하세요?</h1>
+              <h1 id="team-heading" ref={teamHeading} tabIndex={-1} className="text-2xl font-bold tracking-tight">어느 팀을 응원하세요?</h1>
               <p className="text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">팀을 고르면 바로 투표에 참여할 수 있어요.</p>
             </div>
             <div className="divide-y divide-black/10 border-y border-black/10 dark:divide-white/15 dark:border-white/15">
