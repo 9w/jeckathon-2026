@@ -16,7 +16,16 @@ type ReplayLoadState =
   | { status: "error" }
   | { status: "ready"; game: ReplayGame };
 
-export function PlateReplay() {
+export type ReplayMatchState = {
+  batter: string;
+  battingTeam: string;
+  inning: string;
+  outs?: number;
+  awayScore?: number;
+  homeScore?: number;
+};
+
+export function PlateReplay({ onMatchChange }: { onMatchChange?: (match: ReplayMatchState) => void }) {
   const [replay, setReplay] = useState<ReplayLoadState>({
     status: process.env.NODE_ENV === "development" ? "loading" : "unavailable",
   });
@@ -110,12 +119,12 @@ export function PlateReplay() {
           {fileError && <p id="replay-file-error" role="alert" className="fan-error w-full">{fileError}</p>}
         </div>
       )}
-      {replay.status === "ready" && <ReplayTimeline key={fileVersion} game={replay.game} />}
+      {replay.status === "ready" && <ReplayTimeline key={fileVersion} game={replay.game} onMatchChange={onMatchChange} />}
     </section>
   );
 }
 
-function ReplayTimeline({ game }: { game: ReplayGame }) {
+function ReplayTimeline({ game, onMatchChange }: { game: ReplayGame; onMatchChange?: (match: ReplayMatchState) => void }) {
   const [position, setPosition] = useState(0);
   const [selectedPitch, setSelectedPitch] = useState<number | null>(null);
   const [playback, setPlayback] = useState<{ offset: number; beganAt: number } | null>(null);
@@ -136,11 +145,16 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
   const score = game.scoreboard && scoreboardAt(game.scoreboard, clock);
   const previousHalf = score && (score.inning !== appearance.inning || score.half !== appearance.half);
   const inning = `${appearance.inning}회 ${appearance.half === "top" ? "초" : "말"}`;
+  const scoreboardInning = score ? `${score.inning}회 ${score.half === "top" ? "초" : "말"}` : inning;
   const battingTeam = appearance.half === "top" ? game.awayTeam : game.homeTeam;
   const elapsed = formatElapsed(position);
   const result = appearance.resultTime
     ? clock >= appearance.resultTime ? appearance.result : "진행 중"
     : `${appearance.result} (시각 미기록)`;
+
+  useEffect(() => {
+    onMatchChange?.({ batter: appearance.batter, battingTeam, inning: scoreboardInning, outs: score?.outs, awayScore: score?.away, homeScore: score?.home });
+  }, [appearance.batter, battingTeam, onMatchChange, score?.away, score?.home, score?.outs, scoreboardInning]);
 
   useEffect(() => {
     if (!playback) return;
@@ -186,7 +200,7 @@ function ReplayTimeline({ game }: { game: ReplayGame }) {
             <p className="fan-replay-number">{score?.away ?? "–"}</p>
           </div>
           <div className="space-y-1">
-            <p className="text-sm font-bold">{score ? `${score.inning}회 ${score.half === "top" ? "초" : "말"}` : inning}</p>
+            <p className="text-sm font-bold">{scoreboardInning}</p>
             <p className={`text-xs font-semibold ${subtleClass}`}>{score ? `${score.outs}아웃` : "아웃 미기록"}</p>
           </div>
           <div data-team="doosan" className="space-y-1">

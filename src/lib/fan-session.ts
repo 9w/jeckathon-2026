@@ -1,7 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
+import type { FanTaunt } from "./fan-taunts";
 
 export type Team = "lg" | "doosan";
 export type Choice = "safe" | "out";
+
 export type SharedReplay = {
   roomId: string;
   date: string;
@@ -31,6 +33,7 @@ export type FanProfile = {
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 const client = url && key ? createClient(url, key) : null;
+const previewRound = "preview-1";
 const profileFields = "id,team,nickname,points";
 
 export const isSupabaseConfigured = client !== null;
@@ -52,21 +55,15 @@ export async function resetFanSession() {
   if (error && (await getUserId())) throw error;
 }
 
-export async function loadSharedReplay(roomId: string): Promise<SharedReplay | null> {
-  const { data, error } = await supabase().rpc("get_replay_room", { p_room: roomId });
+export async function loadVote(id: string): Promise<Choice | null> {
+  const { data, error } = await supabase()
+    .from("fan_votes")
+    .select("choice")
+    .eq("user_id", id)
+    .eq("round_id", previewRound)
+    .maybeSingle<{ choice: Choice }>();
   if (error) throw error;
-  return data as unknown as SharedReplay | null;
-}
-
-export async function claimReplayOperator(code: string) {
-  const { data, error } = await supabase().rpc("claim_replay_operator", { p_code: code });
-  if (error) throw error;
-  return data === true;
-}
-
-export async function controlReplay(roomId: string, action: "play" | "pause" | "seek", second?: number) {
-  const { error } = await supabase().rpc("control_replay", { p_room: roomId, p_action: action, p_second: second ?? null });
-  if (error) throw error;
+  return data?.choice ?? null;
 }
 
 export async function restoreFan() {
@@ -79,7 +76,7 @@ export async function restoreFan() {
     .eq("id", id)
     .maybeSingle<FanProfile>();
   if (error) throw error;
-  return profile;
+  return profile ? { profile, vote: await loadVote(id) } : null;
 }
 
 export async function joinFan(team: Team) {
@@ -104,6 +101,87 @@ export async function saveNickname(id: string, nickname: string) {
     .single<{ nickname: string }>();
   if (error) throw error;
   return data.nickname;
+}
+
+export async function castVote(id: string, choice: Choice) {
+  const { error } = await supabase()
+    .from("fan_votes")
+    .insert({ user_id: id, round_id: previewRound, choice });
+  if (!error) return choice;
+  if (error.code === "23505") {
+    const existingVote = await loadVote(id);
+    if (existingVote) return existingVote;
+  }
+  throw error;
+}
+
+export async function updateTauntActivity(active: boolean) {
+  const { error } = await supabase().rpc("fan_taunt_activity", { p_active: active });
+  if (error) throw error;
+}
+
+export async function listFanTaunts(): Promise<FanTaunt[]> {
+  const { data, error } = await supabase().rpc("list_fan_taunts");
+  if (error) throw error;
+  return data;
+}
+
+export async function readFanTaunt(id: string): Promise<FanTaunt | null> {
+  const { data, error } = await supabase().rpc("read_fan_taunt", { p_taunt_id: id });
+  if (error) throw error;
+  return data;
+}
+
+export async function getFanTaunt(id: string): Promise<FanTaunt | null> {
+  const { data, error } = await supabase().rpc("get_fan_taunt", { p_taunt_id: id });
+  if (error) throw error;
+  return data;
+}
+
+export async function sendFanTaunt(cardId: string, phraseId: string, requestId: string, replyTo?: string): Promise<{ taunt: FanTaunt; points: number }> {
+  const { data, error } = await supabase().rpc("send_fan_taunt", {
+    p_card_id: cardId,
+    p_phrase_id: phraseId,
+    p_request_id: requestId,
+    p_reply_to: replyTo ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export type FanPointPrediction = {
+  phase: "ready" | "open" | "locked" | "result";
+  round: number | null;
+  choice: Choice | null;
+  answer: Choice | null;
+  reward: number | null;
+  secondsLeft: number | null;
+  points: number;
+};
+
+export async function pointPrediction(action: "read" | "start" | "vote", round?: number, choice?: Choice): Promise<FanPointPrediction> {
+  const { data, error } = await supabase().rpc("fan_point_prediction", {
+    p_action: action, p_round: round ?? null, p_choice: choice ?? null,
+  });
+  if (error) throw error;
+  return data;
+}
+
+export async function loadSharedReplay(roomId: string): Promise<SharedReplay | null> {
+  const { data, error } = await supabase().rpc("get_replay_room", { p_room: roomId });
+  if (error) throw error;
+  return data as unknown as SharedReplay | null;
+}
+
+export async function claimReplayOperator(code: string) {
+  const { data, error } = await supabase().rpc("claim_replay_operator", { p_code: code });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function controlReplay(roomId: string, action: "play" | "pause" | "seek", second?: number) {
+  const { error } = await supabase().rpc("control_replay", { p_room: roomId, p_action: action, p_second: second ?? null });
+  if (error) throw error;
 }
 
 export async function castReplayVote(roomId: string, roundId: string, choice: Choice) {
